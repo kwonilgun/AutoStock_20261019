@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+html,
+body {
+  background: #f2f4f6;
+  color-scheme: light;
+}
+
+body {
+  font-family: "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+  color: #191f28;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}

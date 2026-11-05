@@ -1,0 +1,11 @@
+node_modules
+promo/node_modules
+promo/frames
+promo/audio
+promo/stills
+.next
+.prisma
+*.db
+*.db-journal
+.env
+next-env.d.ts

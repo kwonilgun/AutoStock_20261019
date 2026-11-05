@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>에그밸런스 소개</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #f2f4f6;
+      color: #191f28;
+      font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .stage { position: relative; width: 1920px; height: 1080px; }
+    .scene {
+      position: absolute;
+      inset: 0;
+      background: #f2f4f6;
+      opacity: 0;
+      visibility: hidden;
+    }
+    .hero, .end {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 80px 140px;
+    }
+    .split {
+      height: 100%;
+      display: grid;
+      grid-template-columns: 1.02fr 0.98fr;
+      gap: 36px;
+      align-items: center;
+      padding: 108px 100px 80px;
+    }
+    .stack {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 108px 120px 84px;
+    }
+    .kicker {
+      margin: 0 0 18px;
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #3182f6;
+    }
+    h1 {
+      margin: 0;
+      font-size: 84px;
+      font-weight: 800;
+      line-height: 1.18;
+      letter-spacing: -0.055em;
+    }
+    h2 {
+      margin: 0;
+      font-size: 60px;
+      font-weight: 800;
+      line-height: 1.22;
+      letter-spacing: -0.048em;
+    }
+    .sub {
+      margin: 28px 0 0;
+      font-size: 34px;
+      font-weight: 500;
+      line-height: 1.45;
+      letter-spacing: -0.035em;
+      color: #4e5968;
+    }
+    .quiet {
+      margin: 18px 0 0;
+      font-size: 26px;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      color: #8b95a1;
+    }
+    .mark {
+      position: absolute;
+      top: 42px;
+      left: 64px;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.045em;
+    }
+    .egg-svg { width: 100%; height: 760px; }
+    .mini-egg { width: 220px; height: 262px; margin-bottom: 28px; }
+    .end-egg { width: 280px; height: 332px; margin-bottom: 8px; }
+    .center-copy { align-items: center; text-align: center; }
+    .beat {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      margin-top: 22px;
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+    }
+    .beat i {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #3182f6;
+      display: block;
+      flex: none;
+    }
+    .side-label {
+      margin: 28px 0 10px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #8b95a1;
+    }
+    .phase-row {
+      display: grid;
+      grid-template-columns: 72px 92px 1fr;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 16px;
+      font-size: 26px;
+      letter-spacing: -0.03em;
+    }
+    .phase-row .code {
+      width: 64px;
+      height: 52px;
+      border-radius: 26px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      font-weight: 800;
+      background: #fff;
+      border: 2.5px solid #191f28;
+    }
+    .phase-row .pname { font-weight: 800; }
+    .phase-row .pline { color: #4e5968; font-weight: 600; }
+    .phase-row.on { background: #e8f3ff; }
+    .phase-row.on .code { background: #3182f6; color: #fff; border-color: #3182f6; }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 22px;
+      margin-top: 36px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 28px;
+      padding: 32px 32px 36px;
+      min-height: 300px;
+    }
+    .card .no {
+      font-size: 18px;
+      font-weight: 800;
+      color: #3182f6;
+      letter-spacing: -0.03em;
+    }
+    .card h3 {
+      margin: 18px 0 0;
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -0.045em;
+    }
+    .card ul {
+      margin: 22px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .card li {
+      margin-top: 10px;
+      font-size: 26px;
+      font-weight: 600;
+      color: #4e5968;
+      letter-spacing: -0.03em;
+    }
+    .notes { margin-top: 28px; }
+    .notes p {
+      margin: 8px 0 0;
+      font-size: 24px;
+      font-weight: 600;
+      color: #4e5968;
+      letter-spacing: -0.03em;
+    }
+    .gap-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+    .legend {
+      font-size: 22px;
+      font-weight: 600;
+      color: #8b95a1;
+      letter-spacing: -0.03em;
+      padding-bottom: 8px;
+    }
+    .legend b { color: #3182f6; font-weight: 800; }
+    .legend u { color: #191f28; text-decoration: none; font-weight: 800; }
+    .rows { margin-top: 28px; display: flex; flex-direction: column; gap: 16px; }
+    .grow {
+      display: grid;
+      grid-template-columns: 168px 1fr 210px 148px;
+      gap: 22px;
+      align-items: center;
+      background: #fff;
+      border-radius: 22px;
+      padding: 20px 26px;
+    }
+    .grow .name { font-size: 30px; font-weight: 800; letter-spacing: -0.04em; }
+    .track {
+      position: relative;
+      height: 18px;
+      border-radius: 999px;
+      background: #e5e8eb;
+    }
+    .fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      border-radius: 999px;
+      background: #3182f6;
+      width: 0;
+    }
+    .tick {
+      position: absolute;
+      top: -10px;
+      width: 4px;
+      height: 38px;
+      margin-left: -2px;
+      border-radius: 2px;
+      background: #191f28;
+    }
+    .nums { text-align: right; }
+    .nums .now { display: block; font-size: 30px; font-weight: 800; letter-spacing: -0.04em; }
+    .nums .goal { display: block; margin-top: 2px; font-size: 18px; font-weight: 600; color: #8b95a1; }
+    .pill {
+      justify-self: end;
+      min-width: 112px;
+      height: 48px;
+      padding: 0 16px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+    .pill.over { background: #ffeeee; color: #f04452; }
+    .pill.under { background: #e8f3ff; color: #1b64da; }
+    .pill.hold { background: #f2f4f6; color: #6b7684; }
+    .callout {
+      margin-top: 26px;
+      background: #fff;
+      border-radius: 22px;
+      padding: 26px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 32px;
+    }
+    .callout strong {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+    }
+    .callout span {
+      font-size: 24px;
+      font-weight: 600;
+      color: #4e5968;
+      letter-spacing: -0.03em;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 22px;
+      margin-top: 42px;
+    }
+    .step {
+      background: #fff;
+      border-radius: 28px;
+      padding: 36px 32px 40px;
+      min-height: 320px;
+    }
+    .step .num {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #3182f6;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 28px;
+      font-weight: 800;
+    }
+    .step h3 {
+      margin: 28px 0 0;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.045em;
+      line-height: 1.3;
+    }
+    .step p {
+      margin: 16px 0 0;
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.45;
+      color: #4e5968;
+      letter-spacing: -0.03em;
+    }
+    .deny {
+      margin-top: 8px;
+    }
+    .deny .line {
+      margin-top: 18px;
+      font-size: 46px;
+      font-weight: 800;
+      letter-spacing: -0.045em;
+    }
+    .payoff {
+      margin-top: 36px;
+      background: #fff;
+      border-radius: 28px;
+      padding: 32px 40px;
+      display: inline-block;
+    }
+    .payoff b {
+      display: block;
+      font-size: 22px;
+      color: #3182f6;
+      letter-spacing: -0.03em;
+    }
+    .payoff span {
+      display: block;
+      margin-top: 8px;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.045em;
+    }
+    .chip {
+      display: inline-block;
+      margin-top: 28px;
+      background: #e8f3ff;
+      color: #1b64da;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      border-radius: 999px;
+      padding: 14px 22px;
+    }
+    .fine {
+      margin-top: 22px;
+      font-size: 22px;
+      font-weight: 600;
+      color: #8b95a1;
+      letter-spacing: -0.03em;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage" id="stage">
+    <section class="scene" id="scene-0">
+      <div class="hero">
+        <svg class="mini-egg" id="s0-egg" viewBox="0 0 400 420"></svg>
+        <p class="kicker" id="s0-kicker">에그밸런스</p>
+        <h1 id="s0-title">지금 얼마를 팔고<br />얼마를 사야 할까요</h1>
+        <p class="sub" id="s0-sub">목표 비율로 알려 줍니다</p>
+        <p class="quiet" id="s0-quiet">주문은 하지 않습니다</p>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-1">
+      <div class="mark">에그밸런스</div>
+      <div class="split">
+        <div><svg class="egg-svg" id="s2-egg" viewBox="0 0 400 420"></svg></div>
+        <div>
+          <p class="kicker" id="s2-kicker">코스톨라니의 달걀</p>
+          <h2 id="s2-title">금리와 주가는<br />한 바퀴 돕니다</h2>
+          <div class="beat" id="s2-b0"><i></i>바닥에서 올라갑니다</div>
+          <div class="beat" id="s2-b1"><i></i>과열되면 내려옵니다</div>
+          <div class="beat" id="s2-b2"><i></i>다시 바닥으로 돌아옵니다</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-2">
+      <div class="mark">에그밸런스</div>
+      <div class="split">
+        <div><svg class="egg-svg" id="s3-egg" viewBox="0 0 400 420"></svg></div>
+        <div>
+          <p class="kicker" id="s3-kicker">여섯 칸</p>
+          <h2 id="s3-title">왼쪽은 올라갈 때<br />오른쪽은 내려올 때</h2>
+          <div class="side-label" id="s3-la">A · 올라가는 쪽</div>
+          <div id="s3-list-a"></div>
+          <div class="side-label" id="s3-lb">B · 내려가는 쪽</div>
+          <div id="s3-list-b"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-3">
+      <div class="mark">에그밸런스</div>
+      <div class="split">
+        <div><svg class="egg-svg" id="s4-egg" viewBox="0 0 400 420"></svg></div>
+        <div>
+          <p class="kicker" id="s4-kicker">이번 달의 기준</p>
+          <h2 id="s4-title">칸은 하나로<br />정해집니다</h2>
+          <p class="sub" id="s4-sub">그 비율을 모든 계좌가 함께 봅니다</p>
+          <div class="chip" id="s4-chip">예를 들어, B1 조정</div>
+          <p class="quiet" id="s4-quiet">칸은 운용자가 정합니다. 계좌마다 따로 고르지 않습니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-4">
+      <div class="mark">에그밸런스</div>
+      <div class="stack">
+        <p class="kicker" id="s5-kicker">자산은 아홉 가지</p>
+        <h2 id="s5-title">어디에 두는지<br />네 묶음으로 봅니다</h2>
+        <div class="cards" id="s5-cards"></div>
+        <div class="notes">
+          <p id="s5-n1">부동산은 아파트가 아닙니다. 계좌에서 사고파는 부동산 ETF입니다.</p>
+          <p id="s5-n2">한 묶음이 전체의 60%를 넘지 않게 막아 둡니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-5">
+      <div class="mark">에그밸런스</div>
+      <div class="stack">
+        <div class="gap-head">
+          <div>
+            <p class="kicker" id="s6-kicker">괴리 · 이해를 위한 예시</p>
+            <h2 id="s6-title">내 계좌와 목표의 차이</h2>
+          </div>
+          <div class="legend" id="s6-legend"><b>막대</b>는 지금 비중 · <u>눈금</u>은 목표 비중</div>
+        </div>
+        <div class="rows" id="s6-rows"></div>
+        <div class="callout" id="s6-call">
+          <strong>2%포인트보다 작으면 그대로 둡니다</strong>
+          <span>작은 차이를 매번 맞추지 않습니다</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-6">
+      <div class="mark">에그밸런스</div>
+      <div class="stack">
+        <p class="kicker" id="s7-kicker">이렇게 씁니다</p>
+        <h2 id="s7-title">보고, 확인한 뒤<br />직접 사고팝니다</h2>
+        <div class="steps" id="s7-steps"></div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-7">
+      <div class="mark">에그밸런스</div>
+      <div class="stack center-copy">
+        <p class="kicker" id="s8-kicker">앱이 하지 않는 일</p>
+        <div class="deny">
+          <div class="line" id="s8-l0">주문을 보내지 않습니다</div>
+          <div class="line" id="s8-l1">세금을 계산하지 않습니다</div>
+          <div class="line" id="s8-l2">오를 종목을 약속하지 않습니다</div>
+        </div>
+        <div class="payoff" id="s8-pay">
+          <b>보여주는 것</b>
+          <span>목표 비율로 되돌리는 안내</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene" id="scene-8">
+      <div class="end">
+        <svg class="end-egg" id="s9-egg" viewBox="0 0 400 420"></svg>
+        <h1 id="s9-title">에그밸런스</h1>
+        <p class="sub" id="s9-sub">매달, 달걀의 한 칸으로</p>
+        <p class="fine" id="s9-fine">투자 판단과 주문은 사용자 몫입니다</p>
+      </div>
+    </section>
+  </div>
+  <script>
+    const EGG = { cx: 200, cy: 210, rx: 118, ry: 144, nrx: 86, nry: 106 };
+    const PHASES = [
+      { id: "A1", name: "조정", side: "A", line: "주식·비트코인을 사기 시작", theta: 0.62 },
+      { id: "A2", name: "동행", side: "A", line: "상승을 따라 보유", theta: 1.57 },
+      { id: "A3", name: "과열", side: "A", line: "주식은 줄이고, 달러·금·채권", theta: 2.5 },
+      { id: "B1", name: "조정", side: "B", line: "주식을 줄이고 장기 채권", theta: 3.78 },
+      { id: "B2", name: "동행", side: "B", line: "채권·달러·금으로 버팀", theta: 4.71 },
+      { id: "B3", name: "과매도", side: "B", line: "싸진 주식·비트코인을 매수", theta: 5.66 },
+    ];
+    const GROUPS = [
+      { no: "01", name: "주식", items: ["미국주식", "한국주식"] },
+      { no: "02", name: "채권", items: ["10년물", "30년물"] },
+      { no: "03", name: "자산", items: ["금", "비트코인", "부동산 ETF"] },
+      { no: "04", name: "현금", items: ["원화", "달러"] },
+    ];
+    const GAPS = [
+      { name: "주식", now: 32, goal: 15, tag: "과다", kind: "over" },
+      { name: "장기 채권", now: 12, goal: 35, tag: "부족", kind: "under" },
+      { name: "금", now: 16, goal: 15, tag: "유지", kind: "hold" },
+      { name: "달러", now: 6, goal: 15, tag: "부족", kind: "under" },
+    ];
+    const STEPS = [
+      { n: "1", title: "종목을 넣습니다", body: "가진 티커와 수량을 적습니다" },
+      { n: "2", title: "이번 달 칸", body: "목표 비율을 홈에서 봅니다" },
+      { n: "3", title: "괴리를 확인합니다", body: "많은 것과 부족한 것을 봅니다" },
+      { n: "4", title: "직접 매매합니다", body: "증권사 앱에서 사고팝니다" },
+    ];
+    const NS = "http://www.w3.org/2000/svg";
+
+    function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    function seg(p, a, b) { return clamp((p - a) / (b - a), 0, 1); }
+    function ease(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+    function eggPos(theta, rim) {
+      const rx = rim ? EGG.rx : EGG.nrx;
+      const ry = rim ? EGG.ry : EGG.nry;
+      return {
+        x: EGG.cx - rx * Math.sin(theta),
+        y: EGG.cy + ry * Math.cos(theta),
+      };
+    }
+    function svg(name, attrs, parent) {
+      const el = document.createElementNS(NS, name);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+      if (parent) parent.appendChild(el);
+      return el;
+    }
+    function rise(el, p, a, b) {
+      if (!el) return;
+      const t = ease(seg(p, a, b));
+      el.style.opacity = String(t);
+      el.style.transform = "translateY(" + ((1 - t) * 18) + "px)";
+    }
+
+    function drawEgg(host, prefix, withDot, labels = true) {
+      host.replaceChildren();
+      if (!labels) host.setAttribute("viewBox", "68 52 264 316");
+      const top = svg("text", { x: EGG.cx, y: 28, "text-anchor": "middle", fill: "#8b95a1", "font-size": 18, "font-weight": 700, "font-family": "Apple SD Gothic Neo" }, host);
+      top.textContent = labels ? "금리 정점" : "";
+      svg("ellipse", { cx: EGG.cx, cy: EGG.cy, rx: EGG.rx, ry: EGG.ry, fill: "#f9fafb", stroke: "#191f28", "stroke-width": 3.5 }, host);
+      const y1 = EGG.cy - EGG.ry * 0.34;
+      const y2 = EGG.cy + EGG.ry * 0.34;
+      [y1, y2].forEach((y) => {
+        const dy = (y - EGG.cy) / EGG.ry;
+        const half = EGG.rx * Math.sqrt(Math.max(0, 1 - dy * dy));
+        svg("line", { x1: EGG.cx - half, y1: y, x2: EGG.cx + half, y2: y, stroke: "#d1d6db", "stroke-width": 1.6 }, host);
+      });
+      svg("line", { x1: EGG.cx, y1: EGG.cy - EGG.ry + 8, x2: EGG.cx, y2: EGG.cy + EGG.ry - 8, stroke: "#f04452", "stroke-width": 2.2 }, host);
+      const left = svg("text", { x: 34, y: EGG.cy + 6, "text-anchor": "middle", fill: "#8b95a1", "font-size": 16, "font-weight": 700, "font-family": "Apple SD Gothic Neo" }, host);
+      left.textContent = labels ? "올라갈 때" : "";
+      const right = svg("text", { x: 366, y: EGG.cy + 6, "text-anchor": "middle", fill: "#8b95a1", "font-size": 16, "font-weight": 700, "font-family": "Apple SD Gothic Neo" }, host);
+      right.textContent = labels ? "내려올 때" : "";
+      const bottom = svg("text", { x: EGG.cx, y: 404, "text-anchor": "middle", fill: "#8b95a1", "font-size": 18, "font-weight": 700, "font-family": "Apple SD Gothic Neo" }, host);
+      bottom.textContent = labels ? "금리 저점" : "";
+      PHASES.forEach((ph, i) => {
+        const p = eggPos(ph.theta, false);
+        svg("circle", { id: prefix + "-r-" + i, cx: p.x, cy: p.y, r: 30, fill: "#dbeafe", opacity: 0 }, host);
+        svg("circle", { id: prefix + "-c-" + i, cx: p.x, cy: p.y, r: 20, fill: "#ffffff", stroke: "#191f28", "stroke-width": 2.6 }, host);
+        const label = svg("text", {
+          id: prefix + "-t-" + i,
+          x: p.x,
+          y: p.y + 5,
+          "text-anchor": "middle",
+          fill: "#191f28",
+          "font-size": 14,
+          "font-weight": 800,
+          "font-family": "Apple SD Gothic Neo",
+        }, host);
+        label.textContent = ph.id;
+      });
+      if (withDot) {
+        svg("circle", { id: prefix + "-dot", cx: EGG.cx, cy: EGG.cy + EGG.ry, r: 11, fill: "#3182f6" }, host);
+      }
+    }
+
+    function paintNodes(prefix, active) {
+      PHASES.forEach((_, i) => {
+        const on = i === active;
+        const circle = document.getElementById(prefix + "-c-" + i);
+        const label = document.getElementById(prefix + "-t-" + i);
+        const ring = document.getElementById(prefix + "-r-" + i);
+        circle.setAttribute("fill", on ? "#3182f6" : "#ffffff");
+        circle.setAttribute("stroke", on ? "#3182f6" : "#191f28");
+        label.setAttribute("fill", on ? "#ffffff" : "#191f28");
+        ring.setAttribute("opacity", on ? "1" : "0");
+      });
+    }
+
+    function nearestPhase(theta) {
+      const turn = Math.PI * 2;
+      const t = ((theta % turn) + turn) % turn;
+      let best = 0;
+      let bestD = 99;
+      PHASES.forEach((ph, i) => {
+        let d = Math.abs(ph.theta - t);
+        d = Math.min(d, turn - d);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      });
+      return best;
+    }
+
+    function phaseRow(ph) {
+      const row = document.createElement("div");
+      row.className = "phase-row";
+      row.innerHTML = '<span class="code">' + ph.id + '</span><span class="pname">' + ph.name + '</span><span class="pline">' + ph.line + '</span>';
+      return row;
+    }
+
+    const rowsA = [];
+    const rowsB = [];
+    PHASES.forEach((ph) => {
+      const row = phaseRow(ph);
+      if (ph.side === "A") {
+        document.getElementById("s3-list-a").appendChild(row);
+        rowsA.push(row);
+      } else {
+        document.getElementById("s3-list-b").appendChild(row);
+        rowsB.push(row);
+      }
+    });
+
+    GROUPS.forEach((group, i) => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.id = "s5-card-" + i;
+      card.innerHTML = '<div class="no">' + group.no + '</div><h3>' + group.name + '</h3><ul>' +
+        group.items.map((item) => "<li>" + item + "</li>").join("") + "</ul>";
+      document.getElementById("s5-cards").appendChild(card);
+    });
+
+    const gapEls = GAPS.map((gap, i) => {
+      const row = document.createElement("div");
+      row.className = "grow";
+      row.id = "s6-row-" + i;
+      row.innerHTML =
+        '<div class="name">' + gap.name + '</div>' +
+        '<div class="track"><div class="fill"></div><div class="tick"></div></div>' +
+        '<div class="nums"><span class="now">0%</span><span class="goal">목표 ' + gap.goal + '%</span></div>' +
+        '<div class="pill ' + gap.kind + '">' + gap.tag + '</div>';
+      document.getElementById("s6-rows").appendChild(row);
+      return {
+        row,
+        fill: row.querySelector(".fill"),
+        tick: row.querySelector(".tick"),
+        now: row.querySelector(".now"),
+        pill: row.querySelector(".pill"),
+      };
+    });
+
+    STEPS.forEach((step, i) => {
+      const card = document.createElement("div");
+      card.className = "step";
+      card.id = "s7-step-" + i;
+      card.innerHTML = '<div class="num">' + step.n + '</div><h3>' + step.title + '</h3><p>' + step.body + '</p>';
+      document.getElementById("s7-steps").appendChild(card);
+    });
+
+    drawEgg(document.getElementById("s0-egg"), "s0", false, false);
+    drawEgg(document.getElementById("s2-egg"), "s2", true);
+    drawEgg(document.getElementById("s3-egg"), "s3", false);
+    drawEgg(document.getElementById("s4-egg"), "s4", false);
+    drawEgg(document.getElementById("s9-egg"), "s9", false, false);
+    paintNodes("s0", 0);
+    paintNodes("s9", 1);
+    paintNodes("s4", 3);
+
+    const sceneEls = Array.from(document.querySelectorAll(".scene"));
+    let durations = [6, 7, 8, 6, 7, 8, 6, 6, 5];
+
+    function update(i, p) {
+      if (i === 0) {
+        rise(document.getElementById("s0-egg"), p, 0.0, 0.1);
+        rise(document.getElementById("s0-kicker"), p, 0.04, 0.14);
+        rise(document.getElementById("s0-title"), p, 0.08, 0.2);
+        rise(document.getElementById("s0-sub"), p, 0.16, 0.28);
+        rise(document.getElementById("s0-quiet"), p, 0.24, 0.36);
+      } else if (i === 1) {
+        const u = ease(seg(p, 0.06, 0.92));
+        const theta = PHASES[0].theta + u * Math.PI * 2;
+        const pos = eggPos(theta, true);
+        const dot = document.getElementById("s2-dot");
+        dot.setAttribute("cx", pos.x);
+        dot.setAttribute("cy", pos.y);
+        paintNodes("s2", nearestPhase(theta));
+        rise(document.getElementById("s2-kicker"), p, 0.02, 0.12);
+        rise(document.getElementById("s2-title"), p, 0.06, 0.18);
+        rise(document.getElementById("s2-b0"), p, 0.2, 0.32);
+        rise(document.getElementById("s2-b1"), p, 0.4, 0.52);
+        rise(document.getElementById("s2-b2"), p, 0.6, 0.72);
+      } else if (i === 2) {
+        const u = clamp((p - 0.08) / 0.84, 0, 1);
+        const idx = Math.min(5, Math.floor(u * 6));
+        paintNodes("s3", idx);
+        rise(document.getElementById("s3-kicker"), p, 0.0, 0.1);
+        rise(document.getElementById("s3-title"), p, 0.04, 0.16);
+        rise(document.getElementById("s3-la"), p, 0.12, 0.2);
+        rowsA.forEach((row, n) => rise(row, p, 0.16 + n * 0.06, 0.26 + n * 0.06));
+        rise(document.getElementById("s3-lb"), p, 0.36, 0.44);
+        rowsB.forEach((row, n) => rise(row, p, 0.4 + n * 0.06, 0.5 + n * 0.06));
+        rowsA.concat(rowsB).forEach((row, n) => row.classList.toggle("on", n === idx));
+      } else if (i === 3) {
+        paintNodes("s4", 3);
+        rise(document.getElementById("s4-kicker"), p, 0.02, 0.12);
+        rise(document.getElementById("s4-title"), p, 0.06, 0.18);
+        rise(document.getElementById("s4-sub"), p, 0.16, 0.28);
+        rise(document.getElementById("s4-chip"), p, 0.28, 0.4);
+        rise(document.getElementById("s4-quiet"), p, 0.4, 0.52);
+      } else if (i === 4) {
+        rise(document.getElementById("s5-kicker"), p, 0.0, 0.1);
+        rise(document.getElementById("s5-title"), p, 0.05, 0.16);
+        GROUPS.forEach((_, n) => rise(document.getElementById("s5-card-" + n), p, 0.14 + n * 0.06, 0.26 + n * 0.06));
+        rise(document.getElementById("s5-n1"), p, 0.48, 0.6);
+        rise(document.getElementById("s5-n2"), p, 0.58, 0.7);
+      } else if (i === 5) {
+        const shown = ease(seg(p, 0.08, 0.5));
+        rise(document.getElementById("s6-kicker"), p, 0.0, 0.1);
+        rise(document.getElementById("s6-title"), p, 0.04, 0.14);
+        rise(document.getElementById("s6-legend"), p, 0.08, 0.18);
+        gapEls.forEach((el, n) => {
+          const gap = GAPS[n];
+          rise(el.row, p, 0.1 + n * 0.05, 0.2 + n * 0.05);
+          el.fill.style.width = (gap.now / 45) * shown * 100 + "%";
+          el.tick.style.left = (gap.goal / 45) * 100 + "%";
+          el.tick.style.opacity = String(seg(p, 0.12, 0.24));
+          el.now.textContent = Math.round(gap.now * shown) + "%";
+          el.pill.style.opacity = String(seg(p, 0.42, 0.55));
+        });
+        rise(document.getElementById("s6-call"), p, 0.58, 0.72);
+      } else if (i === 6) {
+        rise(document.getElementById("s7-kicker"), p, 0.0, 0.1);
+        rise(document.getElementById("s7-title"), p, 0.05, 0.16);
+        STEPS.forEach((_, n) => rise(document.getElementById("s7-step-" + n), p, 0.16 + n * 0.08, 0.3 + n * 0.08));
+      } else if (i === 7) {
+        rise(document.getElementById("s8-kicker"), p, 0.0, 0.1);
+        rise(document.getElementById("s8-l0"), p, 0.08, 0.2);
+        rise(document.getElementById("s8-l1"), p, 0.2, 0.32);
+        rise(document.getElementById("s8-l2"), p, 0.32, 0.44);
+        rise(document.getElementById("s8-pay"), p, 0.52, 0.66);
+      } else if (i === 8) {
+        rise(document.getElementById("s9-egg"), p, 0.0, 0.16);
+        rise(document.getElementById("s9-title"), p, 0.1, 0.24);
+        rise(document.getElementById("s9-sub"), p, 0.2, 0.34);
+        rise(document.getElementById("s9-fine"), p, 0.32, 0.46);
+      }
+    }
+
+    window.setDurations = function (next) {
+      durations = next.slice();
+    };
+
+    window.renderAt = function (t) {
+      const starts = [];
+      let cursor = 0;
+      durations.forEach((d) => {
+        starts.push(cursor);
+        cursor += d;
+      });
+      let current = 0;
+      for (let i = starts.length - 1; i >= 0; i -= 1) {
+        if (t >= starts[i]) {
+          current = i;
+          break;
+        }
+      }
+      sceneEls.forEach((el, i) => {
+        const local = t - starts[i];
+        const fadeIn = i === 0 ? 0.45 : 0.38;
+        const showing = i === current || (i === current - 1 && local < 0 && (t - starts[current]) < fadeIn);
+        if (!showing) {
+          el.style.visibility = "hidden";
+          el.style.opacity = "0";
+          return;
+        }
+        el.style.visibility = "visible";
+        if (i === current) {
+          const fade = ease(clamp((t - starts[i]) / fadeIn, 0, 1));
+          el.style.opacity = String(i === 0 ? fade : fade);
+          update(i, clamp(local / durations[i], 0, 1));
+        } else {
+          el.style.opacity = "1";
+          update(i, 1);
+        }
+      });
+    };
+  </script>
+</body>
+</html>
