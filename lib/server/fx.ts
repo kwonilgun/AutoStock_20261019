@@ -76,11 +76,16 @@ export async function latestUsdKrw(): Promise<UsdKrwQuote | null> {
   return readUsdKrw(true);
 }
 
-/** 자동 환율인 포트폴리오만 오늘 시세로 바꾼다. 오늘 값이 있으면 야후를 치지 않는다. */
+/** 자동 환율인 포트폴리오만 SQLite의 오늘 환율로 바꾼다. 없으면 저장된 환율을 그대로 둔다. */
 export async function hydrateFx<T extends FxPortfolio>(portfolio: T): Promise<T> {
   if (portfolio.fxSource !== "auto") return portfolio;
   if (seoulDay(portfolio.fxUpdatedAt) === seoulDay()) return portfolio;
-  return applyQuote(portfolio, await readUsdKrw(false));
+  const today = seoulDay();
+  const cached = await prisma.fxRate.findUnique({
+    where: { pair_date: { pair: PAIR, date: today } },
+  });
+  if (!cached || !(cached.rate > 0)) return portfolio;
+  return applyQuote(portfolio, { rate: cached.rate, date: today, fresh: true });
 }
 
 /**

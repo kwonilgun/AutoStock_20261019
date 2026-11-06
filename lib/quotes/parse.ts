@@ -53,21 +53,65 @@ export function parseNaverName(payload: unknown): string | null {
 
 export type SecurityMatch = { code: string; name: string; market: "KR" | "US" };
 
-/** 네이버 종목 검색 응답에서 한국·미국 종목을 고른다. 이름이 정확히 같은 종목을 먼저 쓴다. */
-export function parseNaverSearch(payload: unknown, query: string): SecurityMatch | null {
+/** 네이버 종목 검색 응답에서 한국·미국 종목을 나온 순서대로 고른다. 같은 코드는 한 번만 둔다. */
+export function parseNaverSearchList(payload: unknown): SecurityMatch[] {
   const items = (payload as { items?: unknown } | null)?.items;
-  if (!Array.isArray(items)) return null;
+  if (!Array.isArray(items)) return [];
   const matches: SecurityMatch[] = [];
+  const seen = new Set<string>();
   for (const item of items) {
     if (!item || typeof item !== "object") continue;
     const { code, name, nationCode } = item as { code?: unknown; name?: unknown; nationCode?: unknown };
     const market = nationCode === "KOR" ? "KR" : nationCode === "USA" ? "US" : null;
     const cleaned = cleanName(name);
-    if (!market || typeof code !== "string" || !code.trim() || !cleaned) continue;
-    matches.push({ code: code.trim().toUpperCase(), name: cleaned, market });
+    const ticker = typeof code === "string" ? code.trim().toUpperCase() : "";
+    if (!market || !ticker || !cleaned || seen.has(ticker)) continue;
+    seen.add(ticker);
+    matches.push({ code: ticker, name: cleaned, market });
   }
+  return matches;
+}
+
+/** 네이버 종목 검색 응답에서 한국·미국 종목을 고른다. 이름이 정확히 같은 종목을 먼저 쓴다. */
+export function parseNaverSearch(payload: unknown, query: string): SecurityMatch | null {
+  const matches = parseNaverSearchList(payload);
   const wanted = query.trim().replace(/\s+/g, "").toUpperCase();
   return matches.find((match) => match.name.replace(/\s+/g, "").toUpperCase() === wanted) ?? matches[0] ?? null;
+}
+
+/** '커버드콜'을 '커버트콜'로 적은 것처럼, 드와 트가 한 곳만 다른 검색어를 만든다. */
+export function deutTeuVariants(query: string): string[] {
+  const text = query.trim();
+  const chars = [...text];
+  const variants: string[] = [];
+  const seen = new Set<string>([text]);
+  chars.forEach((char, index) => {
+    const swap = char === "드" ? "트" : char === "트" ? "드" : null;
+    if (!swap || variants.length >= 4) return;
+    const next = chars.slice();
+    next[index] = swap;
+    const value = next.join("");
+    if (seen.has(value)) return;
+    seen.add(value);
+    variants.push(value);
+  });
+  return variants;
+}
+
+/** 공백을 뺀 이름이 드와 트 한 글자만 다르면 true다. */
+export function differsByOneDeutTeu(left: string, right: string): boolean {
+  const a = left.trim().replace(/\s+/g, "").toUpperCase();
+  const b = right.trim().replace(/\s+/g, "").toUpperCase();
+  if (a.length !== b.length || a === b) return false;
+  let diffs = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] === b[index]) continue;
+    const pair = `${a[index]}${b[index]}`;
+    if (pair !== "드트" && pair !== "트드") return false;
+    diffs += 1;
+    if (diffs > 1) return false;
+  }
+  return diffs === 1;
 }
 
 function cleanName(value: unknown): string | null {

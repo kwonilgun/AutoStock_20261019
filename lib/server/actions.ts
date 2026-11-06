@@ -11,7 +11,9 @@ import { emptyMessage } from "@/lib/engine/rebalance";
 import { incomeMoney } from "@/lib/engine/value";
 import { buildSnapshotPayload } from "@/lib/engine/snapshot";
 import { latestUsdKrw } from "@/lib/server/fx";
-import { lookupName, requireQuote, searchSecurity } from "@/lib/server/prices";
+import { lookupName, requireQuote, searchSecurities, searchSecurity } from "@/lib/server/prices";
+import type { SecurityMatch } from "@/lib/quotes/parse";
+import { getCurrentUser } from "@/lib/server/session";
 import { getOwnedPortfolio, getView, replaceWithExample } from "@/lib/server/portfolio";
 import { forgetViews } from "@/lib/server/view-cache";
 
@@ -126,6 +128,15 @@ export async function saveQuotePrice(input: z.input<typeof quoteSchema>): Promis
   } catch (error) {
     return fail(error);
   }
+}
+
+/** 종목 추가 입력칸의 후보. 로그인하지 않았거나 검색이 비면 빈 목록이다. */
+export async function suggestSecurities(query: string): Promise<SecurityMatch[]> {
+  const text = query.trim();
+  if (text.length < 2 || text.length > 40) return [];
+  const user = await getCurrentUser();
+  if (!user || user.role === "admin") return [];
+  return searchSecurities(text);
 }
 
 export async function saveHolding(input: z.input<typeof holdingSchema>): Promise<ActionResult> {

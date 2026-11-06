@@ -70,7 +70,7 @@ export function AuthForm({
         <input
           name="email"
           type={mode === "login" ? "text" : "email"}
-          autoComplete={blockAutofill ? "off" : mode === "login" ? "username" : "email"}
+          autoComplete={blockAutofill ? "off" : "email"}
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
@@ -89,7 +89,7 @@ export function AuthForm({
         <input
           name="password"
           type="password"
-          autoComplete={blockAutofill ? "new-password" : mode === "login" ? "current-password" : "new-password"}
+          autoComplete="new-password"
           required
           minLength={mode === "signup" ? 4 : undefined}
           readOnly={passwordLocked}

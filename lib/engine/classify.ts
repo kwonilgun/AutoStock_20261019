@@ -86,3 +86,24 @@ export function classify(ticker: string): Classification {
     market: known.market,
   };
 }
+
+/** 검색으로 고른 종목의 자산군. 미리 아는 종목을 먼저 쓰고, 없으면 이름으로 가늠한다. */
+export function sleeveForSecurity(code: string, name: string, market: "KR" | "US"): Sleeve {
+  return classify(code).sleeve ?? inferSleeve(name, market);
+}
+
+/** 종목명으로 금, 부동산, 채권, 주식을 가늠한다. 금호·금융처럼 금이 다른 뜻인 이름은 금으로 보지 않는다. */
+export function inferSleeve(name: string, market: "KR" | "US"): Sleeve {
+  const text = name.toLowerCase();
+  if (text.includes("gold") || text.includes("골드") || /금(?!호|융|액|감)/.test(name)) return "GOLD";
+  if (/리츠|부동산|reit|real estate/.test(text)) return "REIT";
+  if (/채권|국고채|국채|회사채|통안채|treasury|\bbond\b/.test(text)) return inferBondSleeve(name);
+  return market === "US" ? "US_EQUITY" : "KR_EQUITY";
+}
+
+function inferBondSleeve(name: string): Sleeve {
+  const text = name.toLowerCase();
+  if (/30년|20년|장기|long/.test(text)) return "BOND_30Y";
+  if (/10년|3년|2년|1년|단기|중기|short/.test(text)) return "BOND_10Y";
+  return "BOND_30Y";
+}

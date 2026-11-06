@@ -3,13 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent, type Ref } from "react";
 import { DEFAULT_TICKERS, SLEEVE_LABEL, isCashSleeve } from "@/lib/engine/config";
-import { classify, normalizeTicker } from "@/lib/engine/classify";
+import { classify, normalizeTicker, sleeveForSecurity } from "@/lib/engine/classify";
 import { SLEEVES, type Currency, type HoldingInput, type Sleeve } from "@/lib/engine/types";
 import { QUANTITY_EVENT_LABEL, type QuantityEvent } from "@/lib/engine/history";
 import { holdingGain } from "@/lib/engine/value";
 import { formatNumber, formatReturn, formatUsd } from "@/lib/format";
 import type { RecommendAddSeed } from "@/lib/recommendations";
-import { deleteHolding, saveHolding } from "@/lib/server/actions";
+import type { SecurityMatch } from "@/lib/quotes/parse";
+import { deleteHolding, saveHolding, suggestSecurities } from "@/lib/server/actions";
 
 type Draft = {
   ticker: string;
@@ -47,9 +48,9 @@ const GROUPS: { label: string; sleeves: Sleeve[] }[] = [
 
 type SleeveChoice = Sleeve | "BOND";
 
-const SLEEVE_MENU: { value: SleeveChoice; label: string }[] = SLEEVES.flatMap((sleeve) => {
+const SLEEVE_MENU: { value: SleeveChoice; label: string }[] = SLEEVES.flatMap((sleeve): { value: SleeveChoice; label: string }[] => {
   if (sleeve === "BOND_30Y") return [];
-  if (sleeve === "BOND_10Y") return [{ value: "BOND" as const, label: "채권" }];
+  if (sleeve === "BOND_10Y") return [{ value: "BOND", label: "채권" }];
   return [{ value: sleeve, label: SLEEVE_LABEL[sleeve] }];
 });
 
@@ -297,6 +298,141 @@ function ChevronIcon({ open }: { open: boolean }) {
   );
 }
 
+function withSecurity(current: Draft, match: SecurityMatch): Draft {
+  const next = withTicker(current, match.code);
+  return {
+    ...next,
+    sleeve: sleeveForSecurity(match.code, match.name, match.market),
+    currency: match.market === "US" ? "USD" : "KRW",
+  };
+}
+
+function AddTickerField({
+  draft,
+  onChange,
+  guide = false,
+  tickerRef,
+}: {
+  draft: Draft;
+  onChange: (next: Draft) => void;
+  guide?: boolean;
+  tickerRef?: Ref<HTMLInputElement>;
+}) {
+  const [active, setActive] = useState(false);
+  const [picked, setPicked] = useState<SecurityMatch | null>(null);
+  const [suggestions, setSuggestions] = useState<SecurityMatch[]>([]);
+  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+  const listId = "ticker-suggestions";
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickedNow = picked != null && normalizeTicker(picked.code) === normalizeTicker(draft.ticker);
+
+  useEffect(() => {
+    if (picked && normalizeTicker(picked.code) !== normalizeTicker(draft.ticker)) setPicked(null);
+  }, [draft.ticker, picked]);
+
+  useEffect(() => {
+    if (!active) return;
+    const text = draft.ticker.trim();
+    if (text.length < 2 || pickedNow) {
+      setSuggestions([]);
+      setStatus("idle");
+      return;
+    }
+    setSuggestions([]);
+    setStatus("loading");
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      suggestSecurities(text)
+        .then((rows) => {
+          if (cancelled) return;
+          setSuggestions(rows);
+          setStatus("done");
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setSuggestions([]);
+          setStatus("done");
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [active, draft.ticker, pickedNow]);
+
+  function choose(match: SecurityMatch) {
+    setPicked(match);
+    setSuggestions([]);
+    setStatus("idle");
+    onChange(withSecurity(draft, match));
+  }
+
+  const showList = active && !pickedNow && (status === "loading" || status === "done");
+
+  return (
+    <div className="grid gap-1.5">
+      <label className="grid gap-1.5" htmlFor="add-ticker">
+        <span className={`text-[13px] ${guide ? "font-bold text-[#3182f6]" : "font-medium text-[#8b95a1]"}`}>
+          {guide ? "여기에 티커를 입력" : "종목명"}
+        </span>
+        <input
+          id="add-ticker"
+          ref={tickerRef}
+          required
+          value={picked && pickedNow ? picked.name : draft.ticker}
+          onChange={(event) => {
+            setPicked(null);
+            onChange(withTicker(draft, event.target.value));
+          }}
+          onFocus={() => {
+            if (hideTimer.current) clearTimeout(hideTimer.current);
+            setActive(true);
+          }}
+          onBlur={() => {
+            hideTimer.current = setTimeout(() => setActive(false), 200);
+          }}
+          className={guide ? `${fieldClass} ring-2 ring-[#3182f6]` : fieldClass}
+          placeholder="종목명 또는 코드"
+          autoComplete="off"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={showList}
+          aria-controls={listId}
+          aria-describedby={guide ? "ticker-guide" : undefined}
+        />
+      </label>
+      {picked && pickedNow ? <p className="px-1 text-[12px] font-medium text-[#8b95a1]">{picked.code}</p> : null}
+      {showList ? (
+        <div id={listId} className="overflow-hidden rounded-2xl border border-[#e5e8eb] bg-white">
+          {status === "loading" ? <p className="px-4 py-3 text-[14px] text-[#8b95a1]">찾는 중</p> : null}
+          {status === "done" && suggestions.length === 0 ? (
+            <p className="px-4 py-3 text-[14px] text-[#8b95a1]">해당하는 종목이 없습니다.</p>
+          ) : null}
+          {suggestions.length > 0 ? (
+            <ul className="max-h-60 overflow-y-auto">
+              {suggestions.map((match) => (
+                <li key={match.code}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#f2f4f6]"
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      choose(match);
+                    }}
+                  >
+                    <span className="min-w-0 truncate text-[15px] font-semibold text-[#191f28]">{match.name}</span>
+                    <span className="shrink-0 text-[13px] font-medium text-[#8b95a1]">{match.code}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function HoldingFields({
   draft,
   onChange,
@@ -401,20 +537,19 @@ function HoldingFields({
         <p className="rounded-2xl bg-[#f2f4f6] px-4 py-3 text-[14px] font-medium leading-5 text-[#4e5968]">
           {draft.sleeve === "USD_CASH" ? "달러 현금" : "원화 현금"}은 티커 없이 금액만 입력하면 됩니다.
         </p>
+      ) : mode === "add" ? (
+        <AddTickerField draft={draft} onChange={onChange} guide={guide} tickerRef={tickerRef} />
       ) : (
         <label className="grid gap-1.5">
-          <span className={`text-[13px] ${guide ? "font-bold text-[#3182f6]" : "font-medium text-[#8b95a1]"}`}>
-            {guide ? "여기에 티커를 입력" : "티커(종목코드) 또는 종목명"}
-          </span>
+          <span className="text-[13px] font-medium text-[#8b95a1]">티커(종목코드) 또는 종목명</span>
           <input
             ref={tickerRef}
             required
             value={draft.ticker}
             onChange={(event) => onChange(withTicker(draft, event.target.value))}
-            className={guide ? `${fieldClass} ring-2 ring-[#3182f6]` : fieldClass}
-            placeholder={guide ? "예: 005930, VOO" : "005930"}
+            className={fieldClass}
+            placeholder="005930"
             autoComplete="off"
-            aria-describedby={guide ? "ticker-guide" : undefined}
           />
         </label>
       )}
@@ -1114,8 +1249,8 @@ export function HoldingDesk({
               {addingCash
                 ? "현금은 금액만 입력하면 됩니다."
                 : guide
-                  ? "파란 칸에 티커를 입력하고, 수량과 평균단가를 적은 뒤 추가를 누르세요."
-                  : "종목명, 수량, 평균단가를 입력한 뒤 추가를 누르세요."}
+                  ? "파란 칸에 종목명이나 티커를 입력하면 목록이 나옵니다. 고른 뒤 수량과 평균단가를 적고 추가를 누르세요."
+                  : "종목명을 입력하면 목록이 나옵니다. 고른 뒤 수량과 평균단가를 입력하세요."}
             </p>
           </div>
           <HoldingFields
