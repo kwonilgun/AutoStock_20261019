@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 
 export type LoginUserRow = {
+  id: string;
   email: string;
   lastLoginAt: Date;
   online: boolean;
@@ -30,6 +31,7 @@ export async function listLoginUsers(): Promise<LoginUsers> {
   const users = await prisma.user.findMany({
     where: { role: "user", lastLoginAt: { not: null } },
     select: {
+      id: true,
       email: true,
       lastLoginAt: true,
       sessions: {
@@ -43,7 +45,7 @@ export async function listLoginUsers(): Promise<LoginUsers> {
 
   const rows = users.flatMap((user) => {
     if (!user.lastLoginAt) return [];
-    return [{ email: user.email, lastLoginAt: user.lastLoginAt, online: user.sessions.length > 0 }];
+    return [{ id: user.id, email: user.email, lastLoginAt: user.lastLoginAt, online: user.sessions.length > 0 }];
   });
 
   return {

@@ -3,7 +3,7 @@ import { isCashSleeve } from "@/lib/engine/config";
 import { SLEEVES, type Currency, type Sleeve } from "@/lib/engine/types";
 import { isKrCode } from "@/lib/quotes/symbol";
 
-export const RECOMMEND_CATEGORIES = ["US_STOCK", "KR_STOCK", "BOND_ETF", "BTC_ETF", "GOLD_ETF", "REIT_ETF"] as const;
+export const RECOMMEND_CATEGORIES = ["US_STOCK", "KR_STOCK", "BOND_ETF", "GOLD_ETF", "REIT_ETF"] as const;
 
 export type RecommendCategory = (typeof RECOMMEND_CATEGORIES)[number];
 
@@ -11,7 +11,6 @@ export const RECOMMEND_LABEL: Record<RecommendCategory, string> = {
   US_STOCK: "미국주식",
   KR_STOCK: "한국주식",
   BOND_ETF: "채권 ETF",
-  BTC_ETF: "비트코인 ETF",
   GOLD_ETF: "금 ETF",
   REIT_ETF: "부동산 ETF",
 };
@@ -26,7 +25,6 @@ const CATEGORY_SLEEVE: Record<RecommendCategory, Sleeve> = {
   US_STOCK: "US_EQUITY",
   KR_STOCK: "KR_EQUITY",
   BOND_ETF: "BOND_10Y",
-  BTC_ETF: "BTC",
   GOLD_ETF: "GOLD",
   REIT_ETF: "REIT",
 };

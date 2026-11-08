@@ -27,7 +27,9 @@ describe("자산 시계열", () => {
     expect(series.points[1].returnRate).toBeCloseTo(0.125);
     expect(series.points[0].returnRate).toBeNull();
     expect(series.changeKrw).toBe(41_000_000);
-    expect(series.returnRate).toBeCloseTo(121_000_000 / 80_000_000 - 1);
+    expect(series.points[1].cumulativeKrw).toBe(10_000_000);
+    expect(series.points[1].cumulativeRate).toBeCloseTo(10_000_000 / 90_000_000);
+    expect(series.returnRate).toBeCloseTo(41_000_000 / 121_000_000);
   });
 
   it("월별로는 그 달의 마지막 기록을 남긴다", () => {
@@ -36,7 +38,8 @@ describe("자산 시계열", () => {
     expect(series.points.map((point) => point.totalKrw)).toEqual([90_000_000, 100_000_000, 121_000_000]);
     expect(series.points[2].label).toBe("2026년 3월");
     expect(series.points[2].changeKrw).toBe(21_000_000);
-    expect(series.returnRate).toBeCloseTo(121_000_000 / 90_000_000 - 1);
+    expect(series.changeKrw).toBe(41_000_000);
+    expect(series.returnRate).toBeCloseTo(41_000_000 / 121_000_000);
   });
 
   it("연도별로는 그 해의 마지막 기록을 남긴다", () => {
@@ -45,8 +48,8 @@ describe("자산 시계열", () => {
       ["2025년", 90_000_000],
       ["2026년", 121_000_000],
     ]);
-    expect(series.changeKrw).toBe(31_000_000);
-    expect(series.returnRate).toBeCloseTo(121_000_000 / 90_000_000 - 1);
+    expect(series.changeKrw).toBe(41_000_000);
+    expect(series.returnRate).toBeCloseTo(41_000_000 / 121_000_000);
   });
 
   it("기록이 하나면 비교 수익률을 비운다", () => {
@@ -65,8 +68,8 @@ describe("자산 시계열", () => {
       "day",
     );
     expect(series.points[1].returnRate).toBeNull();
-    expect(series.returnRate).toBeNull();
     expect(series.changeKrw).toBe(10_000);
+    expect(series.returnRate).toBeCloseTo(1);
   });
 
   it("실행 기록이 있는 과거 날짜만 평가액으로 남긴다", () => {
@@ -94,7 +97,7 @@ describe("자산 시계열", () => {
     expect(series.points[1].changeKrw).toBe(198_397);
     expect(series.points[1].flowKrw).toBe(203_187);
     expect(series.points[1].returnRate).toBeCloseTo(198_397 / 14_791_739);
-    expect(series.returnRate).toBeCloseTo(198_397 / 14_791_739);
+    expect(series.returnRate).toBeCloseTo(198_397 / 15_193_323);
   });
 
   it("빈 포트폴리오에 처음 넣은 종목은 수익이 아니다", () => {
@@ -110,7 +113,7 @@ describe("자산 시계열", () => {
     expect(series.points[1].returnRate).toBeNull();
     expect(series.points[2].returnRate).toBeCloseTo(0.01);
     expect(series.changeKrw).toBe(100_000);
-    expect(series.returnRate).toBeCloseTo(0.01);
+    expect(series.returnRate).toBeCloseTo(100_000 / 10_100_000);
   });
 
   it("월별 수익률은 유입을 뺀 날짜별 수익률을 이어 붙인다", () => {
@@ -127,7 +130,7 @@ describe("자산 시계열", () => {
     expect(series.points[1].returnRate).toBeCloseTo(1.1 * 1.1 - 1);
   });
 
-  it("시점마다 첫 기록부터의 누적 수익률을 이어 붙인다", () => {
+  it("누적 수익률은 그때까지 손익을 그날 자산으로 나눈다", () => {
     const series = buildAssetSeries(
       [
         { date: "2026-10-01", totalKrw: 100 },
@@ -138,12 +141,29 @@ describe("자산 시계열", () => {
       "day",
     );
     expect(series.points[0].cumulativeRate).toBeNull();
-    expect(series.points[1].cumulativeRate).toBeCloseTo(0.1);
-    expect(series.points[2].cumulativeRate).toBeCloseTo(1.1 * 0.9 - 1);
+    expect(series.points[1].cumulativeKrw).toBeCloseTo(10);
+    expect(series.points[1].cumulativeRate).toBeCloseTo(10 / 110);
     expect(series.points[2].cumulativeKrw).toBeCloseTo(-1);
-    expect(series.points[3].cumulativeRate).toBeCloseTo(1.1 * 0.9 * 1.1 - 1);
+    expect(series.points[2].cumulativeRate).toBeCloseTo(-1 / 1_099);
+    expect(series.points[3].cumulativeKrw).toBeCloseTo(108.9);
+    expect(series.points[3].cumulativeRate).toBeCloseTo(108.9 / 1_208.9);
     expect(series.returnRate).toBe(series.points[3].cumulativeRate);
     expect(series.changeKrw).toBe(series.points[3].cumulativeKrw);
+  });
+
+  it("큰 유입의 손익은 전날 자산이 아니라 그날 자산으로 누적한다", () => {
+    const series = buildAssetSeries(
+      [
+        { date: "2026-10-31", totalKrw: 859_200, flowKrw: 1_008_006 },
+        { date: "2026-11-01", totalKrw: 16_292_400, flowKrw: 19_004_782 },
+      ],
+      "day",
+    );
+    const pnl = 859_200 - 1_008_006 + (16_292_400 - 859_200 - 19_004_782);
+    expect(series.points[1].returnRate).toBeCloseTo((16_292_400 - 19_004_782) / 859_200 - 1);
+    expect(series.points[1].cumulativeKrw).toBeCloseTo(pnl);
+    expect(series.points[1].cumulativeRate).toBeCloseTo(pnl / 16_292_400);
+    expect(series.points[1].cumulativeRate).toBeGreaterThan(-1);
   });
 
   it("평균가가 있으면 첫 기록부터 원금 대비 수익률을 낸다", () => {
@@ -156,7 +176,8 @@ describe("자산 시계열", () => {
     expect(series.points[0].changeKrw).toBe(2_000_000);
     expect(series.points[0].flowKrw).toBe(10_000_000);
     expect(series.points[0].returnRate).toBeCloseTo(0.2);
-    expect(series.returnRate).toBeCloseTo(0.2);
+    expect(series.points[0].cumulativeRate).toBeCloseTo(2_000_000 / 12_000_000);
+    expect(series.returnRate).toBeCloseTo(2_000_000 / 12_000_000);
     expect(series.changeKrw).toBe(2_000_000);
   });
 
@@ -170,7 +191,8 @@ describe("자산 시계열", () => {
     );
     expect(series.points[0].returnRate).toBeCloseTo(0.2);
     expect(series.points[1].returnRate).toBeCloseTo(0.05);
-    expect(series.returnRate).toBeCloseTo(1.2 * 1.05 - 1);
+    expect(series.points[1].cumulativeRate).toBeCloseTo(2_600_000 / 12_600_000);
+    expect(series.returnRate).toBeCloseTo(2_600_000 / 12_600_000);
     expect(series.changeKrw).toBe(2_600_000);
   });
 
@@ -252,7 +274,7 @@ describe("자산 시계열", () => {
     expect(series.points[2].changeKrw).toBe(20);
     expect(series.points[2].returnRate).toBeCloseTo(0.2);
     expect(series.changeKrw).toBe(25);
-    expect(series.returnRate).toBeCloseTo(1.05 * 1.2 - 1);
+    expect(series.returnRate).toBeCloseTo(25 / 110);
   });
 
   it("달러 판매 수익은 지금 환율을 곱한 원화를 수익률에 더한다", () => {
@@ -343,9 +365,9 @@ describe("자산 시계열", () => {
     expect(series.points[1].holdingGainKrw).toBe(240_000);
     expect(series.points[1].cumulativeIncomeKrw).toBe(35_000);
     expect(series.points[1].cumulativeKrw).toBe(140_000);
-    expect(series.points[1].cumulativeRate).toBeCloseTo(140_000 / 600_000);
+    expect(series.points[1].cumulativeRate).toBeCloseTo(140_000 / 740_000);
     expect(series.changeKrw).toBe(140_000);
-    expect(series.returnRate).toBeCloseTo(140_000 / 600_000);
+    expect(series.returnRate).toBeCloseTo(140_000 / 740_000);
   });
 
   it("하루 수익률이 오르면 누적 수익률도 전날보다 오른다", () => {
@@ -375,7 +397,8 @@ describe("자산 시계열", () => {
     expect(today.returnRate).toBeCloseTo(0.005);
     expect(today.holdingGainKrw).toBeLessThan(previous.holdingGainKrw);
     expect(today.cumulativeRate).toBeGreaterThan(previous.cumulativeRate ?? 0);
-    expect(today.cumulativeRate).toBeCloseTo(0.9 * 1.005 - 1);
+    expect(today.cumulativeKrw).toBeCloseTo(-95_500);
+    expect(today.cumulativeRate).toBeCloseTo(-95_500 / 904_500);
   });
 
   it("날짜가 뒤섞여 있어도 시간순으로 맞추고 같은 날은 나중 값을 쓴다", () => {

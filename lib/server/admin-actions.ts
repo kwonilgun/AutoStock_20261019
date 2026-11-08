@@ -13,8 +13,12 @@ import { createAnalysisReport, deleteAnalysisReport, updateAnalysisReport } from
 import { parseWhyNote } from "@/lib/engine/phase-why";
 import { currentWhyNotes, parseOverrides, savePhaseSetting } from "@/lib/server/phase-setting";
 import { getRecommendationSetting, saveRecommendationSetting } from "@/lib/server/recommendation-setting";
+import { hashPassword } from "@/lib/server/password";
 import { getCurrentUser } from "@/lib/server/session";
 import { forgetViews } from "@/lib/server/view-cache";
+
+/** 비밀번호를 잊은 사용자의 임시 비밀번호. 관리자가 사용자 화면에서 되돌린다. */
+const RESET_PASSWORD = "0000";
 
 export type AdminResult = { ok: true; message?: string; id?: string } | { ok: false; message: string };
 
@@ -201,6 +205,30 @@ export async function adminResetPhaseWhy(phase: string): Promise<AdminResult> {
     forgetViews();
     revalidatePath("/", "layout");
     return { ok: true, message: `${parsedPhase} 국면 설명을 기본문으로 되돌렸습니다.` };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** 비밀번호를 잊은 회원의 비밀번호를 0000으로 바꾸고, 기존 로그인을 끊는다. */
+export async function adminResetUserPassword(userId: string): Promise<AdminResult> {
+  try {
+    await requireAdmin();
+    const id = z.string().min(1).parse(userId);
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true },
+    });
+    if (!target || target.role !== "user") return { ok: false, message: "사용자를 찾지 못했습니다." };
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: target.id },
+        data: { passwordHash: await hashPassword(RESET_PASSWORD) },
+      }),
+      prisma.session.deleteMany({ where: { userId: target.id } }),
+    ]);
+    revalidatePath("/admin/users");
+    return { ok: true, message: `${target.email} 비밀번호를 0000으로 바꿨습니다.` };
   } catch (error) {
     return fail(error);
   }

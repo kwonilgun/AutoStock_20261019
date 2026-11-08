@@ -50,7 +50,7 @@ export type SeriesPoint = {
   costKrw: number | null;
   /** 이 날짜까지 수익 메뉴에 적힌 배당·이자·판매 합 */
   cumulativeIncomeKrw: number;
-  /** 첫 기록부터 하루 수익률을 이은 손익과 수익률. 평균가 손익으로 바꾸지 않는다. */
+  /** 첫 기록부터 더한 손익. 수익률은 이 손익을 그날 자산으로 나눈 값이다. */
   cumulativeKrw: number | null;
   cumulativeRate: number | null;
 };
@@ -654,14 +654,14 @@ export function buildAssetSeries(points: AssetPoint[], grain: Grain, holdings?: 
     buckets.set(key, bucket);
   });
 
-  let growth: number | null = null;
   let gain = 0;
   const entries = [...buckets.entries()];
   const series = entries.map(([key, bucket], index) => {
     const baseline = index === 0 && !firstDayCostReturn;
     const returnRate = baseline || bucket.growth == null ? null : bucket.growth - 1;
-    if (!baseline) gain += bucket.gainKrw;
-    if (returnRate != null) growth = (growth ?? 1) * (1 + returnRate);
+    const counted = bucket.growth != null || index > 0 || firstDayCostReturn;
+    if (counted) gain += bucket.gainKrw;
+    const cumulativeKrw = counted ? gain : null;
     const combined = combinedCumulative(bucket.asOf, index === entries.length - 1, holdings);
     return {
       key,
@@ -676,9 +676,9 @@ export function buildAssetSeries(points: AssetPoint[], grain: Grain, holdings?: 
       holdingGainKrw: combined?.holdingGainKrw ?? 0,
       costKrw: combined?.costKrw ?? null,
       cumulativeIncomeKrw: combined?.cumulativeIncomeKrw ?? 0,
-      // 누적은 원화 평가액의 하루 수익률을 이은 값이다. 평균가 대비로 바꾸면 환율 이익이 빠져, 하루 수익률이 올라도 누적이 내려간다.
-      cumulativeKrw: baseline ? null : gain,
-      cumulativeRate: growth == null ? null : growth - 1,
+      // 누적 수익률은 그때까지 손익을 그날 자산으로 나눈 값이다. 구간 수익률을 곱하면 분모가 작은 날의 큰 손익이 이후 날짜까지 남는다.
+      cumulativeKrw,
+      cumulativeRate: cumulativeKrw == null || !(bucket.totalKrw > 0) ? null : cumulativeKrw / bucket.totalKrw,
     };
   });
 

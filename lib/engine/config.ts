@@ -8,14 +8,14 @@ export const REIT_MIN = 0;
 export const TRADE_BAND = 0.02;
 export const LOT_SIZE = 1;
 
-/** 자산_비중_20261019.md 국면별 배분표. 채권은 10년물과 30년물로 나눈다. */
+/** 자산_비중_20261019.md 국면별 배분표. 채권은 10년물과 30년물로 나눈다. 비트코인은 모든 국면에서 0이다. */
 export const PHASE_WEIGHTS: Record<Phase, Record<Sleeve, number>> = {
-  A1: { US_EQUITY: 0.25, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.05, GOLD: 0.05, BTC: 0.05, REIT: 0.1, KRW_CASH: 0.15, USD_CASH: 0.1 },
-  A2: { US_EQUITY: 0.35, KR_EQUITY: 0.2, BOND_10Y: 0.05, BOND_30Y: 0, GOLD: 0.05, BTC: 0.1, REIT: 0.1, KRW_CASH: 0.1, USD_CASH: 0.05 },
-  A3: { US_EQUITY: 0.2, KR_EQUITY: 0.1, BOND_10Y: 0.05, BOND_30Y: 0.05, GOLD: 0.15, BTC: 0.05, REIT: 0.05, KRW_CASH: 0.15, USD_CASH: 0.2 },
+  A1: { US_EQUITY: 0.25, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.05, GOLD: 0.1, BTC: 0, REIT: 0.1, KRW_CASH: 0.15, USD_CASH: 0.1 },
+  A2: { US_EQUITY: 0.35, KR_EQUITY: 0.2, BOND_10Y: 0.05, BOND_30Y: 0, GOLD: 0.1, BTC: 0, REIT: 0.15, KRW_CASH: 0.1, USD_CASH: 0.05 },
+  A3: { US_EQUITY: 0.2, KR_EQUITY: 0.1, BOND_10Y: 0.05, BOND_30Y: 0.05, GOLD: 0.2, BTC: 0, REIT: 0.05, KRW_CASH: 0.15, USD_CASH: 0.2 },
   B1: { US_EQUITY: 0.1, KR_EQUITY: 0.05, BOND_10Y: 0.05, BOND_30Y: 0.3, GOLD: 0.15, BTC: 0, REIT: 0.05, KRW_CASH: 0.15, USD_CASH: 0.15 },
   B2: { US_EQUITY: 0.05, KR_EQUITY: 0, BOND_10Y: 0.05, BOND_30Y: 0.35, GOLD: 0.15, BTC: 0, REIT: 0.05, KRW_CASH: 0.15, USD_CASH: 0.2 },
-  B3: { US_EQUITY: 0.15, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.1, GOLD: 0.1, BTC: 0.05, REIT: 0.1, KRW_CASH: 0.15, USD_CASH: 0.1 },
+  B3: { US_EQUITY: 0.15, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.1, GOLD: 0.1, BTC: 0, REIT: 0.15, KRW_CASH: 0.15, USD_CASH: 0.1 },
 };
 
 /** 여섯 국면의 평균. 화면의 닻 대비는 이 평균과 비교한다. */
@@ -54,21 +54,21 @@ export const PHASE_META: Record<
     environment: "금리 최저, 침체 탈출",
     action: "아무도 관심없음",
     headline: "주식매수, 부동산매도, 안전자산 매도",
-    guide: "금리가 바닥에 있고 비관이 남아 있는 구간입니다. 장기 채권과 현금을 줄이고, 회복에 앞서 주식과 비트코인을 사기 시작합니다.",
+    guide: "금리가 바닥에 있고 비관이 남아 있는 구간입니다. 장기 채권과 현금을 줄이고, 회복에 앞서 주식과 부동산을 사기 시작합니다. 금은 10%를 둡니다.",
   },
   A2: {
     name: "동행",
     environment: "본격 상승, 금리 완만 상승",
     action: "대중 관심 증가",
     headline: "주식보유",
-    guide: "경기와 실적이 함께 오르는 구간입니다. 주식, 비트코인, 부동산 비중을 높여 상승을 따라가고 장기 채권은 비웁니다.",
+    guide: "경기와 실적이 함께 오르는 구간입니다. 주식과 부동산 비중을 높여 상승을 따라가고, 금은 남긴 채 장기 채권은 비웁니다.",
   },
   A3: {
     name: "과열",
     environment: "금리 고점, 투기 과열",
     action: "모두가 낙관",
     headline: "주식매도, 예금입금",
-    guide: "참여가 붐비고 금리가 고점에 가까운 구간입니다. 주식과 비트코인 차익을 실현하고, 달러·금과 함께 장기 채권을 다시 모읍니다.",
+    guide: "참여가 붐비고 금리가 고점에 가까운 구간입니다. 주식 차익을 실현하고, 달러·금과 함께 장기 채권을 다시 모읍니다.",
     
   },
   B1: {
@@ -76,7 +76,7 @@ export const PHASE_META: Record<
     environment: "경기 둔화, 긴축 여파",
     action: "하락을 인정 못함",
     headline: "예금출금, 채권매수",
-    guide: "고금리가 이어지며 경기와 실적이 둔화되는 구간입니다. 주식과 비트코인을 줄이고, 고금리 장기 채권을 모아 금리 인하 때의 가격 상승을 준비합니다.",
+    guide: "고금리가 이어지며 경기와 실적이 둔화되는 구간입니다. 주식을 줄이고, 고금리 장기 채권을 모아 금리 인하 때의 가격 상승을 준비합니다.",
   },
   B2: {
     name: "동행",
@@ -90,7 +90,7 @@ export const PHASE_META: Record<
     environment: "패닉, 침체 바닥",
     action: "모두가 포기",
     headline: "부동산 매수, 채권 매도",
-    guide: "투매와 극단적 비관이 깔린 바닥입니다. 오른 장기 채권을 나눠 팔고, 그 자금으로 낮아진 주식과 비트코인을 사기 시작합니다.",
+    guide: "투매와 극단적 비관이 깔린 바닥입니다. 오른 장기 채권을 나눠 팔고, 그 자금으로 낮아진 주식과 부동산을 사기 시작합니다.",
   },
 };
 

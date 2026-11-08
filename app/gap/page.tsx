@@ -60,7 +60,9 @@ export default function GapPage() {
         const groups: GapFolder[] = GROUPS.flatMap((group) => {
           const members = group.sleeves.flatMap((sleeve) => {
             const snapshot = bySleeve.get(sleeve);
-            return snapshot ? [sleeveView(snapshot)] : [];
+            if (!snapshot) return [];
+            if (sleeve === "BTC" && snapshot.currentKrw <= 0 && snapshot.targetWeight <= 0) return [];
+            return [sleeveView(snapshot)];
           });
           if (members.length === 0) return [];
           return [{ ...group, summary: groupView(group.label, group.sleeves[0], members), members }];

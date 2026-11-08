@@ -46,7 +46,7 @@ describe("목표 비중", () => {
   it("관리자 입력은 합 100%와 상한 60%를 검사한다", () => {
     expect(weightProblem(PHASE_WEIGHTS.B1)).toBeNull();
     expect(weightProblem({ ...PHASE_WEIGHTS.B1, GOLD: 0.2 })).toContain("합계");
-    expect(weightProblem({ ...PHASE_WEIGHTS.A2, US_EQUITY: 0.45, KR_EQUITY: 0.2, BOND_10Y: 0, BTC: 0.05 })).toContain("상한");
+    expect(weightProblem({ ...PHASE_WEIGHTS.A2, US_EQUITY: 0.45, KR_EQUITY: 0.2, REIT: 0.05 })).toContain("상한");
   });
 
   it("닻은 여섯 국면의 평균이다", () => {
@@ -74,7 +74,20 @@ describe("목표 비중", () => {
     const a2 = targetWeights("A2").weights;
     expect(a2.BOND_10Y).toBeCloseTo(0.05);
     expect(a2.BOND_30Y).toBe(0);
-    expect(a2.GOLD).toBeCloseTo(0.05);
+    expect(a2.BTC).toBe(0);
+    expect(a2.GOLD).toBeCloseTo(0.1);
+  });
+
+  it("비트코인은 모든 국면에서 0이고 A1 주식은 원래 35%다", () => {
+    for (const phase of PHASES) expect(targetWeights(phase).weights.BTC).toBe(0);
+    const a1 = targetWeights("A1").weights;
+    expect(stockWeight(a1)).toBeCloseTo(0.35);
+    expect(a1.US_EQUITY).toBeCloseTo(0.25);
+    expect(a1.KR_EQUITY).toBeCloseTo(0.1);
+    expect(a1.GOLD).toBeCloseTo(0.1);
+    expect(a1.REIT).toBeCloseTo(0.1);
+    expect(a1.KRW_CASH).toBeCloseTo(0.15);
+    expect(a1.USD_CASH).toBeCloseTo(0.1);
   });
 
   it("주식 합이 60%를 넘으면 60%로 자르고 합계를 다시 맞춘다", () => {

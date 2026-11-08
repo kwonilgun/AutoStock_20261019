@@ -195,10 +195,14 @@ export function ReturnBars({
   const plot = { left: 58, right: 32, top: 14, bottom: 30 };
   const inner = height - plot.top - plot.bottom;
   const floor = height - plot.bottom;
-  const rates = points.map((point) => point.returnRate ?? 0);
-  const cumulative = points.map((point) => point.cumulativeRate ?? 0);
-  const rawMin = Math.min(0, ...rates, ...cumulative);
-  const rawMax = Math.max(0, ...rates, ...cumulative);
+  const rates = points.flatMap((point) =>
+    point.cumulativeKrw != null && Math.round(point.cumulativeKrw) !== 0 && point.cumulativeRate != null
+      ? [point.cumulativeRate]
+      : [],
+  );
+  const hasRate = rates.length > 0;
+  const rawMin = hasRate ? Math.min(0, ...rates) : 0;
+  const rawMax = hasRate ? Math.max(0, ...rates) : 0;
   const rawSpan = Math.max(rawMax - rawMin, 0.01);
   const symmetricSpan = 2 * Math.max(Math.abs(rawMin), rawMax, 0.01);
   const span = Math.max(rawSpan, symmetricSpan / RETURN_AMPLITUDE);
@@ -218,7 +222,9 @@ export function ReturnBars({
   const coords = points.map((point, index) => ({ x: xOf(index), point }));
   const hoveredKey = useRef<string | null>(null);
   const cumulativeLine = points.flatMap((point, index) =>
-    point.cumulativeRate == null ? [] : [{ key: point.key, x: xOf(index), y: yOf(point.cumulativeRate) }],
+    point.cumulativeKrw == null || Math.round(point.cumulativeKrw) === 0 || point.cumulativeRate == null
+      ? []
+      : [{ key: point.key, x: xOf(index), y: yOf(point.cumulativeRate) }],
   );
 
   function hoverAt(event: PointerEvent<SVGSVGElement>) {
@@ -240,7 +246,7 @@ export function ReturnBars({
       viewBox={`0 0 ${WIDTH} ${height}`}
       className="h-36 w-full touch-none"
       role="img"
-      aria-label="수익률 그래프"
+      aria-label="누적 수익률 그래프"
       onPointerDown={hoverAt}
       onPointerMove={hoverAt}
       onPointerLeave={() => {
@@ -248,15 +254,21 @@ export function ReturnBars({
         onHover(null);
       }}
     >
-      <text x={plot.left - 8} y={yOf(yMax) + 4} textAnchor="end" fontSize="11" fill="#8b95a1">
-        {formatReturn(yMax)}
-      </text>
-      <text x={plot.left - 8} y={zero + 4} textAnchor="end" fontSize="11" fill="#8b95a1">
-        0%
-      </text>
-      <text x={plot.left - 8} y={yOf(yMin) + 4} textAnchor="end" fontSize="11" fill="#8b95a1">
-        {formatReturn(yMin)}
-      </text>
+      {hasRate ? (
+        <text x={plot.left - 8} y={yOf(yMax) + 4} textAnchor="end" fontSize="11" fill="#8b95a1">
+          {formatReturn(yMax)}
+        </text>
+      ) : null}
+      {hasRate ? (
+        <text x={plot.left - 8} y={zero + 4} textAnchor="end" fontSize="11" fill="#8b95a1">
+          0%
+        </text>
+      ) : null}
+      {hasRate ? (
+        <text x={plot.left - 8} y={yOf(yMin) + 4} textAnchor="end" fontSize="11" fill="#8b95a1">
+          {formatReturn(yMin)}
+        </text>
+      ) : null}
       <line x1={plot.left} x2={WIDTH - plot.right} y1={zero} y2={zero} stroke="#e5e8eb" strokeWidth="1" />
       {coords.map((coord) => {
         const hovered = coord.point.key === activeKey;
@@ -274,8 +286,8 @@ export function ReturnBars({
         );
       })}
       {points.map((point, index) => {
-        if (point.returnRate == null) return null;
-        const rate = point.returnRate;
+        if (point.cumulativeKrw == null || Math.round(point.cumulativeKrw) === 0 || point.cumulativeRate == null) return null;
+        const rate = point.cumulativeRate;
         const x = xOf(index) - barWidth / 2;
         const y = rate >= 0 ? yOf(rate) : zero;
         const barHeight = Math.max(Math.abs(yOf(rate) - zero), 3);

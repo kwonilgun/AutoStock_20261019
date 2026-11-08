@@ -46,6 +46,23 @@ function signedWon(value: number): string {
   return `${sign}${formatNumber(Math.abs(rounded))}원`;
 }
 
+function hasCumulativeWon(value: number | null | undefined): value is number {
+  return value != null && Math.round(value) !== 0;
+}
+
+function pointHasChange(point: {
+  changeKrw: number | null;
+  returnRate: number | null;
+  flowKrw: number;
+  incomeKrw: number;
+}): boolean {
+  if (point.changeKrw != null && Math.round(point.changeKrw) !== 0) return true;
+  if (point.returnRate != null && !flat(point.returnRate)) return true;
+  if (Math.round(point.flowKrw) !== 0) return true;
+  if (Math.round(point.incomeKrw) !== 0) return true;
+  return false;
+}
+
 function flat(value: number): boolean {
   return Math.round(value * 1000) / 10 === 0;
 }
@@ -281,11 +298,15 @@ export function PerformanceDesk({
   const headline = focus?.totalKrw ?? 0;
   const change = focus?.changeKrw ?? null;
   const rate = focus?.returnRate ?? null;
+  const changeShown = change != null && Math.round(change) !== 0;
+  const rateShown = rate != null && !flat(rate);
   const caption =
     focus == null ? "비교할 이전 기록이 없습니다" : focus.changeKrw == null ? "첫 기록" : compareCaption(grain);
-  const color = toneColor(focus?.cumulativeRate ?? series.returnRate);
+  const cumulativeKrw = focus && hasCumulativeWon(focus.cumulativeKrw) ? focus.cumulativeKrw : null;
+  const cumulativeRate = cumulativeKrw != null ? (focus?.cumulativeRate ?? null) : null;
+  const color = toneColor(cumulativeRate ?? series.returnRate);
   const activeKey = focus?.key ?? null;
-  const records = useMemo(() => [...series.points].reverse(), [series.points]);
+  const records = useMemo(() => [...series.points].reverse().filter(pointHasChange), [series.points]);
   const reserveIncome = series.points.some((point) => point.incomeKrw !== 0);
   const incomeInReturn =
     focus == null || focusIndex < 0
@@ -454,11 +475,13 @@ export function PerformanceDesk({
         <p className="mt-2 truncate text-[15px] font-semibold tabular-nums">
           {change == null ? (
             <span className="font-medium text-[#8b95a1]">{caption}</span>
+          ) : !changeShown && !rateShown ? (
+            <span className="font-medium text-[#8b95a1]">{"\u00a0"}</span>
           ) : (
             <>
               <span className={toneClass(rate)}>
-                {signedWon(change)}
-                {rate != null ? <span className="ml-1.5">{formatReturn(rate)}</span> : null}
+                {changeShown ? signedWon(change) : null}
+                {rateShown ? <span className="ml-1.5">{formatReturn(rate)}</span> : null}
               </span>
               <span className="ml-1.5 font-medium text-[#8b95a1]">{caption}</span>
             </>
@@ -482,7 +505,7 @@ export function PerformanceDesk({
       <section className="rounded-[22px] bg-white px-5 py-5">
         <h2 className="text-[17px] font-bold text-[#191f28]">수익률</h2>
         <p className="mt-1 text-[13px] text-[#8b95a1]">
-          구간은 넣거나 뺀 돈을 빼고, 누적은 그 수익률을 첫 기록부터 이어 계산합니다
+          누적은 그때까지 손익을 그날 자산으로 나눈 값입니다. 그래프도 이 누적을 그립니다
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-[#f9fafb] px-4 py-3">
@@ -490,11 +513,11 @@ export function PerformanceDesk({
               {grain === "day" ? "전 날보다" : grain === "month" ? "전 달보다" : "전 해보다"}
               {focus ? <span className="ml-1 text-[#8b95a1]">· {focus.axisLabel}</span> : null}
             </p>
-            <p className={`mt-1 truncate text-[20px] font-bold tabular-nums ${toneClass(focus?.returnRate ?? null)}`}>
-              {focus?.returnRate != null ? formatReturn(focus.returnRate) : "—"}
+            <p className={`mt-1 truncate text-[20px] font-bold tabular-nums ${toneClass(rateShown ? rate : null)}`}>
+              {rateShown && rate != null ? formatReturn(rate) : "—"}
             </p>
             <p className="mt-0.5 truncate text-[13px] font-medium tabular-nums text-[#8b95a1]">
-              {focus?.changeKrw != null ? signedWon(focus.changeKrw) : "비교할 기록 없음"}
+              {changeShown && change != null ? signedWon(change) : change == null ? "비교할 기록 없음" : "\u00a0"}
             </p>
             {reserveIncome ? (
               <p
@@ -510,11 +533,11 @@ export function PerformanceDesk({
               누적 수익률
               {series.points[0] ? <span className="ml-1 text-[#8b95a1]">· {series.points[0].axisLabel}부터</span> : null}
             </p>
-            <p className={`mt-1 truncate text-[20px] font-bold tabular-nums ${toneClass(focus?.cumulativeRate ?? null)}`}>
-              {focus?.cumulativeRate != null ? formatReturn(focus.cumulativeRate) : "—"}
+            <p className={`mt-1 truncate text-[20px] font-bold tabular-nums ${toneClass(cumulativeRate)}`}>
+              {cumulativeRate != null ? formatReturn(cumulativeRate) : "—"}
             </p>
             <p className="mt-0.5 truncate text-[13px] font-medium tabular-nums text-[#8b95a1]">
-              {focus?.cumulativeKrw != null ? signedWon(focus.cumulativeKrw) : "비교할 기록 없음"}
+              {cumulativeKrw != null ? signedWon(cumulativeKrw) : focus?.cumulativeKrw == null ? "비교할 기록 없음" : "\u00a0"}
             </p>
             {reserveIncome ? (
               <p
@@ -533,9 +556,6 @@ export function PerformanceDesk({
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#f04452]" />
             <span className="-ml-1 inline-block h-2.5 w-2.5 rounded-[3px] bg-[#3182f6]" />
-            {grain === "day" ? "날짜별" : grain === "month" ? "월별" : "년도별"}
-          </span>
-          <span className="flex items-center gap-1.5">
             <span className="inline-block h-0.5 w-4 rounded-full" style={{ backgroundColor: CUMULATIVE }} />
             누적
           </span>
@@ -559,7 +579,9 @@ export function PerformanceDesk({
         </div>
         {focus ? <p className="pb-1 text-[13px] leading-5 text-[#8b95a1]">{recordHint}</p> : null}
         {records.length === 0 ? (
-          <p className="py-4 text-[14px] text-[#8b95a1]">아직 평가액 기록이 없습니다</p>
+          <p className="py-4 text-[14px] text-[#8b95a1]">
+            {series.points.length === 0 ? "아직 평가액 기록이 없습니다" : "변화가 있는 기록이 없습니다"}
+          </p>
         ) : (
           <ul
             ref={listRef}
@@ -585,11 +607,16 @@ export function PerformanceDesk({
                       <p className={`mt-0.5 text-[13px] font-semibold tabular-nums ${toneClass(point.returnRate)}`}>
                         {point.changeKrw == null || point.returnRate == null
                           ? "첫 기록"
-                          : `${signedWon(point.changeKrw)} ${formatReturn(point.returnRate)}`}
+                          : Math.round(point.changeKrw) === 0
+                            ? flat(point.returnRate)
+                              ? "\u00a0"
+                              : formatReturn(point.returnRate)
+                            : `${signedWon(point.changeKrw)} ${formatReturn(point.returnRate)}`}
                       </p>
-                      {point.cumulativeRate != null ? (
+                      {hasCumulativeWon(point.cumulativeKrw) && point.cumulativeRate != null ? (
                         <p className="mt-0.5 text-[12px] font-medium tabular-nums text-[#6b7684]">
-                          누적 <span className={toneClass(point.cumulativeRate)}>{formatReturn(point.cumulativeRate)}</span>
+                          누적 {signedWon(point.cumulativeKrw)}{" "}
+                          <span className={toneClass(point.cumulativeRate)}>{formatReturn(point.cumulativeRate)}</span>
                         </p>
                       ) : null}
                       {point.incomeKrw !== 0 ? (

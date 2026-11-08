@@ -35,7 +35,6 @@ const WEIGHT_GROUPS: { label: string; members: { sleeve: Sleeve; label: string }
     label: "자산",
     members: [
       { sleeve: "GOLD", label: "금" },
-      { sleeve: "BTC", label: "비트코인" },
       { sleeve: "REIT", label: "부동산" },
     ],
   },

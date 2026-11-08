@@ -1,3 +1,4 @@
+import { ResetPasswordButton } from "@/components/admin/ResetPasswordButton";
 import { AdminShell, formatUpdatedAt, requireAdminPage } from "@/components/admin/AdminShell";
 import { listLoginUsers } from "@/lib/server/login-users";
 
@@ -11,6 +12,9 @@ export default async function AdminUsersPage() {
         <p className="text-[13px] font-medium text-[#8b95a1]">로그인한 사용자</p>
         <p className="mt-1 text-[32px] font-bold tracking-tight text-[#191f28]">{loggedInCount}명</p>
         <p className="mt-1 text-[13px] text-[#8b95a1]">지금 접속 중 {onlineCount}명</p>
+        <p className="mt-2 text-[13px] leading-5 text-[#8b95a1]">
+          비밀번호를 잊은 사용자는 비밀번호 리셋으로 0000으로 되돌릴 수 있습니다.
+        </p>
       </section>
 
       <section className="rounded-[22px] bg-white px-5 py-2">
@@ -19,16 +23,19 @@ export default async function AdminUsersPage() {
         ) : (
           <ul className="divide-y divide-[#f2f4f6]">
             {users.map((user) => (
-              <li key={user.email} className="flex items-center justify-between gap-3 py-3.5">
+              <li key={user.id} className="flex items-center justify-between gap-3 py-3.5">
                 <div className="min-w-0">
                   <p className="truncate text-[16px] font-semibold text-[#191f28]">{user.email}</p>
                   <p className="mt-0.5 text-[13px] text-[#8b95a1]">마지막 로그인 {formatUpdatedAt(user.lastLoginAt)}</p>
                 </div>
-                {user.online ? (
-                  <span className="shrink-0 rounded-full bg-[#e8f3ff] px-2.5 py-1 text-[12px] font-semibold text-[#3182f6]">
-                    접속 중
-                  </span>
-                ) : null}
+                <div className="flex shrink-0 items-center gap-2">
+                  {user.online ? (
+                    <span className="rounded-full bg-[#e8f3ff] px-2.5 py-1 text-[12px] font-semibold text-[#3182f6]">
+                      접속 중
+                    </span>
+                  ) : null}
+                  <ResetPasswordButton userId={user.id} email={user.email} />
+                </div>
               </li>
             ))}
           </ul>
