@@ -86,7 +86,8 @@ function pendingNote(date: string, points: AssetPoint[]): string | null {
     .sort();
   const first = dates[0];
   if (!first) return "평가 기록이 생기면 그 다음 기록부터 수익률에 들어갑니다";
-  if (date <= first) return "첫 기록 이전이라 수익률에는 넣지 않습니다";
+  if (date < first) return null;
+  if (date === first) return "첫 기록 당일이라 수익률에는 넣지 않습니다";
   if (dates.length === 1) return "비교할 이전 기록이 없어 다음 기록부터 수익률에 들어갑니다";
   return null;
 }

@@ -77,6 +77,18 @@ function toneColor(value: number | null): string {
   return DOWN;
 }
 
+function ReturnPart({ label, rate, amount }: { label: string; rate: number; amount: number }) {
+  return (
+    <p className="min-w-0">
+      <span className="block truncate text-[12px] leading-4 font-medium text-[#8b95a1]">{label}</span>
+      <span className={`mt-0.5 block text-[13px] leading-4 font-semibold tabular-nums ${toneClass(rate)}`}>
+        {formatReturn(rate)}
+      </span>
+      <span className="block truncate text-[12px] leading-4 font-medium tabular-nums text-[#8b95a1]">{signedWon(amount)}</span>
+    </p>
+  );
+}
+
 function ClockIcon() {
   return (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -312,6 +324,10 @@ export function PerformanceDesk({
     focus == null || focusIndex < 0
       ? 0
       : series.points.slice(0, focusIndex + 1).reduce((sum, point) => sum + point.incomeKrw, 0);
+  const priceKrw = cumulativeKrw != null ? cumulativeKrw - incomeInReturn : null;
+  const returnBase = focus != null && focus.totalKrw > 0 ? focus.totalKrw : null;
+  const priceRate = priceKrw != null && returnBase != null ? priceKrw / returnBase : null;
+  const incomeRate = returnBase != null && incomeInReturn !== 0 ? incomeInReturn / returnBase : null;
   const listRef = useRef<HTMLUListElement>(null);
   const [listMaxHeight, setListMaxHeight] = useState<number | null>(null);
   const periods = useMemo(
@@ -505,7 +521,7 @@ export function PerformanceDesk({
       <section className="rounded-[22px] bg-white px-5 py-5">
         <h2 className="text-[17px] font-bold text-[#191f28]">수익률</h2>
         <p className="mt-1 text-[13px] text-[#8b95a1]">
-          누적은 그때까지 손익을 그날 자산으로 나눈 값입니다. 그래프도 이 누적을 그립니다
+          누적은 주식 시세와 배당·이자·판매를 더한 손익을 그날 자산으로 나눈 값입니다. 그래프도 이 누적을 그립니다
         </p>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-2xl bg-[#f9fafb] px-4 py-3">
@@ -539,12 +555,14 @@ export function PerformanceDesk({
             <p className="mt-0.5 truncate text-[13px] font-medium tabular-nums text-[#8b95a1]">
               {cumulativeKrw != null ? signedWon(cumulativeKrw) : focus?.cumulativeKrw == null ? "비교할 기록 없음" : "\u00a0"}
             </p>
-            {reserveIncome ? (
-              <p
-                className="mt-0.5 h-4 truncate text-[12px] leading-4 font-medium tabular-nums text-[#8b95a1]"
-                aria-hidden={incomeInReturn === 0}
-              >
-                {incomeInReturn !== 0 ? `배당·이자·판매 ${signedWon(incomeInReturn)} 포함` : "\u00a0"}
+            {priceRate != null && priceKrw != null && incomeRate != null ? (
+              <div className="mt-2 space-y-2 border-t border-[#e5e8eb] pt-2">
+                <ReturnPart label="주식 시세" rate={priceRate} amount={priceKrw} />
+                <ReturnPart label="배당·이자·판매" rate={incomeRate} amount={incomeInReturn} />
+              </div>
+            ) : reserveIncome ? (
+              <p className="mt-0.5 h-4" aria-hidden>
+                {"\u00a0"}
               </p>
             ) : null}
           </div>

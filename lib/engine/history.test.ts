@@ -266,15 +266,54 @@ describe("자산 시계열", () => {
         { date: "bad", amountKrw: 9 },
       ],
     );
-    expect(applied.map((point) => point.incomeKrw)).toEqual([0, 5, 10]);
+    expect(applied.map((point) => point.incomeKrw)).toEqual([3, 5, 10]);
     const series = buildAssetSeries(applied, "day");
+    expect(series.points[0].incomeKrw).toBe(3);
+    expect(series.points[0].cumulativeKrw).toBe(3);
+    expect(series.points[0].cumulativeRate).toBeCloseTo(3 / 100);
     expect(series.points[1].changeKrw).toBe(5);
     expect(series.points[1].returnRate).toBeCloseTo(0.05);
     expect(series.points[1].incomeKrw).toBe(5);
     expect(series.points[2].changeKrw).toBe(20);
     expect(series.points[2].returnRate).toBeCloseTo(0.2);
-    expect(series.changeKrw).toBe(25);
-    expect(series.returnRate).toBeCloseTo(25 / 110);
+    expect(series.changeKrw).toBe(28);
+    expect(series.returnRate).toBeCloseTo(28 / 110);
+  });
+
+  it("첫 평가일보다 전의 배당·이자·판매는 첫 기록 누적 수익률에 넣는다", () => {
+    const applied = applyIncome(
+      [{ date: "2026-11-08", totalKrw: 1_000, flowKrw: 1_200 }],
+      [
+        { date: "2026-10-30", amountKrw: 50 },
+        { date: "2026-11-01", amountKrw: 20 },
+        { date: "2026-11-06", amountKrw: -30 },
+        { date: "2026-11-08", amountKrw: 7 },
+      ],
+    );
+    expect(applied[0].incomeKrw).toBe(40);
+    const series = buildAssetSeries(applied, "day");
+    const gain = 1_000 - 1_200 + 40;
+    expect(series.points[0].incomeKrw).toBe(40);
+    expect(series.points[0].cumulativeKrw).toBe(gain);
+    expect(series.points[0].cumulativeRate).toBeCloseTo(gain / 1_000);
+    expect(series.returnRate).toBeCloseTo(gain / 1_000);
+  });
+
+  it("첫 평가일보다 전의 수익은 다음 날 누적에도 남는다", () => {
+    const series = buildAssetSeries(
+      applyIncome(
+        [
+          { date: "2026-11-08", totalKrw: 1_000, flowKrw: 1_200 },
+          { date: "2026-11-09", totalKrw: 1_100 },
+        ],
+        [{ date: "2026-11-01", amountKrw: 40 }],
+      ),
+      "day",
+    );
+    expect(series.points[0].cumulativeKrw).toBe(-160);
+    expect(series.points[1].changeKrw).toBe(100);
+    expect(series.points[1].cumulativeKrw).toBe(-60);
+    expect(series.points[1].cumulativeRate).toBeCloseTo(-60 / 1_100);
   });
 
   it("달러 판매 수익은 지금 환율을 곱한 원화를 수익률에 더한다", () => {
@@ -527,6 +566,7 @@ describe("배당을 붙이는 평가일", () => {
         { date: "2026-10-20" },
       ],
       [
+        { date: "2026-09-01", kind: "dividend", amountKrw: 3, note: "이전" },
         { date: "2026-10-01", kind: "dividend", amountKrw: 7, note: "" },
         { date: "2026-10-05", kind: "interest", amountKrw: 4, note: "현금" },
         { date: "2026-10-05", kind: "dividend", amountKrw: 1, note: "" },
@@ -534,6 +574,7 @@ describe("배당을 붙이는 평가일", () => {
       ],
     );
     expect(hosted).toEqual([
+      { date: "2026-09-01", hostDate: "2026-10-01", kind: "dividend", amountKrw: 3, note: "이전" },
       { date: "2026-10-05", hostDate: "2026-10-10", kind: "interest", amountKrw: 4, note: "현금" },
       { date: "2026-10-05", hostDate: "2026-10-10", kind: "dividend", amountKrw: 1, note: "" },
       { date: "2026-10-21", hostDate: "2026-10-20", kind: "sale", amountKrw: 8, note: "QQQI" },

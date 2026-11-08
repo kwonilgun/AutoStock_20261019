@@ -509,9 +509,10 @@ export function hostIncomes(
   if (!start || !last) return [];
   const hosted: HostedIncome[] = [];
   for (const income of incomes) {
-    if (!DATE.test(income.date) || !Number.isFinite(income.amountKrw) || income.date <= start) continue;
-    const host = dates.find((date) => date >= income.date) ?? (income.date > last ? last : null);
-    if (!host || host === start) continue;
+    if (!DATE.test(income.date) || !Number.isFinite(income.amountKrw) || income.date === start) continue;
+    // 첫 평가일보다 전은 그 날의 누적 수익률에 넣는다. 첫 평가일 당일은 시작 자산으로 둔다.
+    const host = income.date < start ? start : (dates.find((date) => date >= income.date) ?? (income.date > last ? last : null));
+    if (!host || (host === start && income.date > start)) continue;
     hosted.push({
       date: income.date,
       hostDate: host,
@@ -559,7 +560,7 @@ function axisLabel(key: string, grain: Grain): string {
 
 /**
  * 배당·이자·판매 수익을 그 금액이 반영될 평가일에 붙인다.
- * 첫 기록 당일과 그 전은 시작 자산으로 보고 수익률에 넣지 않는다.
+ * 첫 평가일보다 전은 첫 기록의 누적 수익률에 넣는다. 첫 평가일 당일은 시작 자산으로 보고 넣지 않는다.
  * 기록과 기록 사이에 있으면 뒤 기록에 더하고, 마지막 기록 다음이면 마지막 기록에 더한다.
  */
 export function applyIncome<T extends AssetPoint>(points: T[], incomes: { date: string; amountKrw: number }[]): (T & { incomeKrw: number })[] {
@@ -569,9 +570,12 @@ export function applyIncome<T extends AssetPoint>(points: T[], incomes: { date: 
   const last = sorted[sorted.length - 1];
   if (start && last) {
     for (const income of incomes) {
-      if (!DATE.test(income.date) || !Number.isFinite(income.amountKrw) || income.date <= start) continue;
-      const host = sorted.find((point) => point.date >= income.date) ?? (income.date > last.date ? last : null);
-      if (!host || host.date === start) continue;
+      if (!DATE.test(income.date) || !Number.isFinite(income.amountKrw) || income.date === start) continue;
+      const host =
+        income.date < start
+          ? sorted[0]
+          : (sorted.find((point) => point.date >= income.date) ?? (income.date > last.date ? last : null));
+      if (!host || (host.date === start && income.date > start)) continue;
       extra.set(host.date, (extra.get(host.date) ?? 0) + income.amountKrw);
     }
   }
@@ -648,6 +652,12 @@ export function buildAssetSeries(points: AssetPoint[], grain: Grain, holdings?: 
       bucket.incomeKrw += income;
       bucket.gainKrw += day.totalKrw - flow + income;
       bucket.growth = (day.totalKrw + income) / flow;
+    } else if (income !== 0) {
+      // 첫 평가일보다 전에 받은 배당·이자·판매. 비교할 어제는 없고, 누적 손익에만 넣는다.
+      firstDayCostReturn = true;
+      bucket.incomeKrw += income;
+      bucket.gainKrw += income;
+      if (day.totalKrw > 0) bucket.growth = (day.totalKrw + income) / day.totalKrw;
     }
     bucket.totalKrw = day.totalKrw;
     bucket.asOf = day.date;
