@@ -5,12 +5,14 @@ import { SeoulClock } from "@/components/home/SeoulClock";
 import { AssetLine, CUMULATIVE, ReturnBars } from "@/components/performance/Charts";
 import { classify, normalizeTicker } from "@/lib/engine/classify";
 import {
+  alignCumulative,
   buildAssetSeries,
   datedFlowLines,
   heldPositions,
   hostIncomes,
   INCOME_KIND_LABEL,
   periodKey,
+  stockPricePnl,
   type AssetPoint,
   type DatedFlow,
   type FlowLine,
@@ -294,7 +296,12 @@ export function PerformanceDesk({
     }),
     [positionDays, current, incomes, usdKrw],
   );
-  const series = useMemo(() => buildAssetSeries(points, grain, seriesInput), [points, grain, seriesInput]);
+  const series = useMemo(() => {
+    const built = buildAssetSeries(points, grain, seriesInput);
+    const aligned = alignCumulative(built.points);
+    const last = aligned[aligned.length - 1] ?? null;
+    return { ...built, points: aligned, changeKrw: last?.cumulativeKrw ?? null, returnRate: last?.cumulativeRate ?? null };
+  }, [points, grain, seriesInput]);
   const focus = useMemo(() => {
     const entries = series.points;
     if (entries.length === 0) return null;
@@ -324,7 +331,7 @@ export function PerformanceDesk({
     focus == null || focusIndex < 0
       ? 0
       : series.points.slice(0, focusIndex + 1).reduce((sum, point) => sum + point.incomeKrw, 0);
-  const priceKrw = cumulativeKrw != null ? cumulativeKrw - incomeInReturn : null;
+  const priceKrw = stockPricePnl(focus, incomeInReturn);
   const returnBase = focus != null && focus.totalKrw > 0 ? focus.totalKrw : null;
   const priceRate = priceKrw != null && returnBase != null ? priceKrw / returnBase : null;
   const incomeRate = returnBase != null && incomeInReturn !== 0 ? incomeInReturn / returnBase : null;
@@ -555,10 +562,10 @@ export function PerformanceDesk({
             <p className="mt-0.5 truncate text-[13px] font-medium tabular-nums text-[#8b95a1]">
               {cumulativeKrw != null ? signedWon(cumulativeKrw) : focus?.cumulativeKrw == null ? "비교할 기록 없음" : "\u00a0"}
             </p>
-            {priceRate != null && priceKrw != null && incomeRate != null ? (
+            {priceRate != null && priceKrw != null && (focus?.costKrw != null || incomeRate != null) ? (
               <div className="mt-2 space-y-2 border-t border-[#e5e8eb] pt-2">
                 <ReturnPart label="주식 시세" rate={priceRate} amount={priceKrw} />
-                <ReturnPart label="배당·이자·판매" rate={incomeRate} amount={incomeInReturn} />
+                {incomeRate != null ? <ReturnPart label="배당·이자·판매" rate={incomeRate} amount={incomeInReturn} /> : null}
               </div>
             ) : reserveIncome ? (
               <p className="mt-0.5 h-4" aria-hidden>

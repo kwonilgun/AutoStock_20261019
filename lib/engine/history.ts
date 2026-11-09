@@ -524,6 +524,35 @@ export function hostIncomes(
   return hosted;
 }
 
+/**
+ * 주식 시세. 평균가가 있으면 수량×(현재가−평균가)×환율의 합이다.
+ * 평균가가 없으면 누적 손익에서 배당·이자·판매를 뺀 값이다.
+ */
+export function stockPricePnl(
+  point: Pick<SeriesPoint, "cumulativeKrw" | "holdingGainKrw" | "costKrw"> | null,
+  incomeKrw: number,
+): number | null {
+  if (!point) return null;
+  if (point.costKrw != null) return point.holdingGainKrw;
+  if (point.cumulativeKrw == null) return null;
+  return point.cumulativeKrw - incomeKrw;
+}
+
+/** 누적 손익을 주식 시세와 그때까지 배당·이자·판매의 합으로 맞춘다. */
+export function alignCumulative(points: SeriesPoint[]): SeriesPoint[] {
+  let incomeKrw = 0;
+  return points.map((point) => {
+    incomeKrw += point.incomeKrw;
+    if (point.costKrw == null) return point;
+    const cumulativeKrw = Math.round(point.holdingGainKrw + incomeKrw);
+    return {
+      ...point,
+      cumulativeKrw,
+      cumulativeRate: point.totalKrw > 0 ? cumulativeKrw / point.totalKrw : null,
+    };
+  });
+}
+
 export function periodKey(date: string, grain: Grain): string {
   return bucketKey(date, grain);
 }

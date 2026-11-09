@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { incomeToKrw } from "./value";
 import {
+  alignCumulative,
   applyIncome,
   buildAssetSeries,
+  stockPricePnl,
+  type SeriesPoint,
   datedFlowLines,
   externalFlowKrw,
   flowLines,
@@ -438,6 +441,42 @@ describe("자산 시계열", () => {
     expect(today.cumulativeRate).toBeGreaterThan(previous.cumulativeRate ?? 0);
     expect(today.cumulativeKrw).toBeCloseTo(-95_500);
     expect(today.cumulativeRate).toBeCloseTo(-95_500 / 904_500);
+    expect(stockPricePnl(today, 0)).toBe(today.holdingGainKrw);
+  });
+
+  it("주식 시세는 평균가가 있으면 평가손익이고 없으면 누적에서 수익을 뺀다", () => {
+    expect(stockPricePnl({ cumulativeKrw: -100, holdingGainKrw: -760, costKrw: 1_000 }, -50)).toBe(-760);
+    expect(stockPricePnl({ cumulativeKrw: -100, holdingGainKrw: 0, costKrw: null }, -40)).toBe(-60);
+    expect(stockPricePnl(null, 0)).toBeNull();
+  });
+
+  it("누적 손익은 주식 시세와 배당·이자·판매의 합이다", () => {
+    const row = (patch: Partial<SeriesPoint>): SeriesPoint => ({
+      key: "2026-11-09",
+      label: "2026년 11월 9일",
+      axisLabel: "11.9",
+      asOf: "2026-11-09",
+      totalKrw: 1_000,
+      changeKrw: 0,
+      flowKrw: 0,
+      incomeKrw: 0,
+      returnRate: null,
+      holdingGainKrw: 0,
+      costKrw: null,
+      cumulativeIncomeKrw: 0,
+      cumulativeKrw: null,
+      cumulativeRate: null,
+      ...patch,
+    });
+    const [first, today] = alignCumulative([
+      row({ key: "2026-11-08", asOf: "2026-11-08", incomeKrw: -40, cumulativeKrw: -100, totalKrw: 900 }),
+      row({ incomeKrw: -10, holdingGainKrw: -760, costKrw: 2_000, cumulativeKrw: -120, totalKrw: 1_000 }),
+    ]);
+    expect(first.cumulativeKrw).toBe(-100);
+    expect(today.cumulativeKrw).toBe(-810);
+    expect(today.cumulativeRate).toBeCloseTo(-810 / 1_000);
+    const income = (first.incomeKrw ?? 0) + (today.incomeKrw ?? 0);
+    expect(stockPricePnl(today, income)! + income).toBe(today.cumulativeKrw);
   });
 
   it("날짜가 뒤섞여 있어도 시간순으로 맞추고 같은 날은 나중 값을 쓴다", () => {
