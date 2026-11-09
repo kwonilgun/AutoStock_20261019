@@ -1,3 +1,4 @@
+import { DeleteUserButton } from "@/components/admin/DeleteUserButton";
 import { ResetPasswordButton } from "@/components/admin/ResetPasswordButton";
 import { AdminShell, formatUpdatedAt, requireAdminPage } from "@/components/admin/AdminShell";
 import { listLoginUsers } from "@/lib/server/login-users";
@@ -13,7 +14,8 @@ export default async function AdminUsersPage() {
         <p className="mt-1 text-[32px] font-bold tracking-tight text-[#191f28]">{loggedInCount}명</p>
         <p className="mt-1 text-[13px] text-[#8b95a1]">지금 접속 중 {onlineCount}명</p>
         <p className="mt-2 text-[13px] leading-5 text-[#8b95a1]">
-          비밀번호를 잊은 사용자는 비밀번호 리셋으로 0000으로 되돌릴 수 있습니다.
+          비밀번호를 잊은 사용자는 비밀번호 리셋으로 0000으로 되돌릴 수 있습니다. 삭제는 계정과 포트폴리오를 함께
+          지우며 되돌릴 수 없습니다.
         </p>
       </section>
 
@@ -28,13 +30,14 @@ export default async function AdminUsersPage() {
                   <p className="truncate text-[16px] font-semibold text-[#191f28]">{user.email}</p>
                   <p className="mt-0.5 text-[13px] text-[#8b95a1]">마지막 로그인 {formatUpdatedAt(user.lastLoginAt)}</p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-start gap-1.5">
                   {user.online ? (
                     <span className="rounded-full bg-[#e8f3ff] px-2.5 py-1 text-[12px] font-semibold text-[#3182f6]">
                       접속 중
                     </span>
                   ) : null}
                   <ResetPasswordButton userId={user.id} email={user.email} />
+                  <DeleteUserButton userId={user.id} email={user.email} />
                 </div>
               </li>
             ))}

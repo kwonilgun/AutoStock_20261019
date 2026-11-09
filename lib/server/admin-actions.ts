@@ -234,6 +234,25 @@ export async function adminResetUserPassword(userId: string): Promise<AdminResul
   }
 }
 
+/** 로그인한 회원의 계정, 세션, 포트폴리오를 지운다. 관리자 계정은 지울 수 없다. */
+export async function adminDeleteUser(userId: string): Promise<AdminResult> {
+  try {
+    await requireAdmin();
+    const id = z.string().min(1).parse(userId);
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true },
+    });
+    if (!target || target.role !== "user") return { ok: false, message: "사용자를 찾지 못했습니다." };
+    await prisma.user.delete({ where: { id: target.id } });
+    forgetViews(target.id);
+    revalidatePath("/admin/users");
+    return { ok: true, message: `${target.email} 계정을 삭제했습니다.` };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 export async function adminResetWeights(phase: string): Promise<AdminResult> {
   try {
     const admin = await requireAdmin();
