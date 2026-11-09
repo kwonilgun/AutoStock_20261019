@@ -13,6 +13,7 @@ import { buildSnapshotPayload } from "@/lib/engine/snapshot";
 import { latestUsdKrw } from "@/lib/server/fx";
 import { lookupName, requireQuote, searchSecurities, searchSecurity } from "@/lib/server/prices";
 import type { SecurityMatch } from "@/lib/quotes/parse";
+import { isPlainCashTicker } from "@/lib/quotes/symbol";
 import { getCurrentUser } from "@/lib/server/session";
 import { getOwnedPortfolio, getView, replaceWithExample } from "@/lib/server/portfolio";
 import { forgetViews } from "@/lib/server/view-cache";
@@ -145,7 +146,7 @@ export async function saveHolding(input: z.input<typeof holdingSchema>): Promise
     const typed = normalizeTicker(parsed.ticker);
     const sleeve = parsed.sleeve;
     const portfolio = await getOwnedPortfolio();
-    const cash = sleeve === "KRW_CASH" || sleeve === "USD_CASH";
+    const cash = (sleeve === "KRW_CASH" || sleeve === "USD_CASH") && isPlainCashTicker(parsed.ticker);
     const adding = parsed.price == null;
     if (!cash && adding && !(parsed.avgPrice && parsed.avgPrice > 0)) {
       return { ok: false, message: "평균단가를 입력해 주세요." };

@@ -30,6 +30,7 @@ describe("acceptsAutoQuote", () => {
     expect(acceptsAutoQuote(holding, null)).toBe(false);
     expect(acceptsAutoQuote({ ...holding, priceSource: "manual" }, { fresh: true, currency: "USD" })).toBe(false);
     expect(acceptsAutoQuote({ ...holding, sleeve: "KRW_CASH", ticker: "CASH" }, { fresh: true, currency: "KRW" })).toBe(false);
+    expect(acceptsAutoQuote({ ...holding, sleeve: "USD_CASH", ticker: "SGOV" }, { fresh: true, currency: "USD" })).toBe(true);
     expect(acceptsAutoQuote({ ...holding, currency: "KRW", ticker: "IAU" }, { fresh: true, currency: "USD" })).toBe(false);
   });
 });

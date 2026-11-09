@@ -12,7 +12,7 @@ import {
   type MarketQuote,
   type SecurityMatch,
 } from "@/lib/quotes/parse";
-import { acceptsAutoQuote, isKrCode, yahooSymbols } from "@/lib/quotes/symbol";
+import { acceptsAutoQuote, isKrCode, isPlainCashTicker, yahooSymbols } from "@/lib/quotes/symbol";
 
 export type CloseQuote = MarketQuote & {
   date: string;
@@ -34,8 +34,7 @@ function autoQuoteHoldings(holdings: PriceHolding[]) {
   return holdings.filter(
     (holding) =>
       holding.priceSource !== "manual" &&
-      holding.sleeve !== "KRW_CASH" &&
-      holding.sleeve !== "USD_CASH" &&
+      !isPlainCashTicker(holding.ticker) &&
       yahooSymbols(holding.ticker).length > 0,
   );
 }

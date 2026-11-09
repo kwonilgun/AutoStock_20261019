@@ -10,6 +10,7 @@ import { holdingGain } from "@/lib/engine/value";
 import { formatNumber, formatReturn, formatUsd } from "@/lib/format";
 import type { RecommendAddSeed } from "@/lib/recommendations";
 import type { SecurityMatch } from "@/lib/quotes/parse";
+import { isPlainCashTicker } from "@/lib/quotes/symbol";
 import { deleteHolding, saveHolding, suggestSecurities } from "@/lib/server/actions";
 
 type Draft = {
@@ -102,8 +103,19 @@ function withChoice(current: Draft, choice: SleeveChoice): Draft {
   return withSleeve(current, choice === "BOND" ? bondSleeveFor(current) : choice);
 }
 
+function keepsSelectedTicker(ticker: string): boolean {
+  const key = normalizeTicker(ticker);
+  return key !== "" && !isPlainCashTicker(key);
+}
+
+function faceCashDraft(draft: Draft): boolean {
+  return isCashSleeve(draft.sleeve) && !keepsSelectedTicker(draft.ticker);
+}
+
 function withSleeve(current: Draft, sleeve: Sleeve): Draft {
   if (sleeve === "KRW_CASH" || sleeve === "USD_CASH") {
+    // 이미 고른 종목은 유지한다. 초단기 금리 ETF처럼 현금과 같은 종목을 원화·달러로 둘 수 있다.
+    if (keepsSelectedTicker(current.ticker)) return { ...current, sleeve, isCoveredCall: false };
     return {
       ...current,
       sleeve,
@@ -112,12 +124,12 @@ function withSleeve(current: Draft, sleeve: Sleeve): Draft {
       isCoveredCall: false,
     };
   }
-  const leavingCash = isCashSleeve(current.sleeve);
+  const leavingCash = isCashSleeve(current.sleeve) && isPlainCashTicker(current.ticker);
   return { ...current, sleeve, ticker: leavingCash ? "" : current.ticker };
 }
 
 function holdingPayload(draft: Draft, mode: "add" | "edit", addTo = 0) {
-  const cash = draft.sleeve === "KRW_CASH" || draft.sleeve === "USD_CASH";
+  const cash = faceCashDraft(draft);
   const known = classify(draft.ticker);
   const avgPrice = Number(draft.avgPrice.replace(/,/g, ""));
   return {
@@ -149,7 +161,7 @@ function toneClass(value: number): string {
 }
 
 function quantityLabel(holding: HoldingInput): string {
-  const cash = holding.sleeve === "KRW_CASH" || holding.sleeve === "USD_CASH";
+  const cash = holding.sleeve != null && isCashSleeve(holding.sleeve) && isPlainCashTicker(holding.ticker);
   if (cash) return holding.currency === "USD" ? formatUsd(holding.quantity) : `${formatNumber(holding.quantity)}원`;
   const qty = Number.isInteger(holding.quantity) ? formatNumber(holding.quantity) : String(holding.quantity);
   return `${qty}주`;
@@ -166,7 +178,7 @@ function priceText(price: number, currency: Currency): string {
 }
 
 function priceLabel(holding: HoldingInput): string {
-  if (holding.price == null || holding.sleeve === "KRW_CASH" || holding.sleeve === "USD_CASH") return "";
+  if (holding.price == null || (holding.sleeve != null && isCashSleeve(holding.sleeve) && isPlainCashTicker(holding.ticker))) return "";
   const current = priceText(holding.price, holding.currency);
   if (holding.avgPrice == null || !(holding.avgPrice > 0)) return current;
   return `${current} · 평단가 ${priceText(holding.avgPrice, holding.currency)}`;
@@ -192,7 +204,7 @@ function quoteFetchedLabel(value: string | undefined): string {
 }
 
 function amountText(holding: HoldingInput, quantity: number): string {
-  const cash = holding.sleeve === "KRW_CASH" || holding.sleeve === "USD_CASH";
+  const cash = holding.sleeve != null && isCashSleeve(holding.sleeve) && isPlainCashTicker(holding.ticker);
   if (cash) return holding.currency === "USD" ? formatUsd(quantity) : `${formatNumber(Math.round(quantity))}원`;
   const rounded = Math.round(quantity);
   const whole = Math.abs(quantity - rounded) < 1e-6;
@@ -448,7 +460,7 @@ function HoldingFields({
   guide?: boolean;
   tickerRef?: Ref<HTMLInputElement>;
 }) {
-  const cash = draft.sleeve === "KRW_CASH" || draft.sleeve === "USD_CASH";
+  const cash = faceCashDraft(draft);
   if (compact) {
     const sleeveField = (
       <label className="grid gap-1">
@@ -533,6 +545,11 @@ function HoldingFields({
   }
   return (
     <div className="grid gap-4">
+      {isCashSleeve(draft.sleeve) && !cash ? (
+        <p className="rounded-2xl bg-[#f2f4f6] px-4 py-3 text-[14px] font-medium leading-5 text-[#4e5968]">
+          고른 종목은 그대로 둡니다. 원화·달러와 같은 초단기 금리 ETF는 현금으로 셉니다.
+        </p>
+      ) : null}
       {cash ? (
         <p className="rounded-2xl bg-[#f2f4f6] px-4 py-3 text-[14px] font-medium leading-5 text-[#4e5968]">
           {draft.sleeve === "USD_CASH" ? "달러 현금" : "원화 현금"}은 티커 없이 금액만 입력하면 됩니다.
@@ -755,8 +772,7 @@ export function HoldingDesk({
         (holding) =>
           holding.price != null &&
           holding.priceSource !== "manual" &&
-          holding.sleeve !== "KRW_CASH" &&
-          holding.sleeve !== "USD_CASH",
+          !(holding.sleeve != null && isCashSleeve(holding.sleeve) && isPlainCashTicker(holding.ticker)),
       )
       .map((holding) => (holding.priceUpdatedAt ? new Date(holding.priceUpdatedAt).getTime() : Number.NaN))
       .filter((time) => !Number.isNaN(time));
@@ -959,11 +975,12 @@ export function HoldingDesk({
     );
   }
 
-  const addingCash = isCashSleeve(draft.sleeve);
+  const addingCash = faceCashDraft(draft);
+  const keepingTicker = isCashSleeve(draft.sleeve) && !addingCash;
 
   function submitAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const cash = isCashSleeve(draft.sleeve);
+    const cash = faceCashDraft(draft);
     const payload = holdingPayload(draft, "add");
     const existingCash = cash
       ? holdings.find((holding) => normalizeTicker(holding.ticker) === normalizeTicker(payload.ticker))
@@ -1248,7 +1265,9 @@ export function HoldingDesk({
             <p id="ticker-guide" className="mt-1 text-[13px] leading-5 text-[#6b7684]">
               {addingCash
                 ? "현금은 금액만 입력하면 됩니다."
-                : guide
+                : keepingTicker
+                  ? "고른 종목은 그대로 두고 현금으로 셉니다. 수량과 평균단가를 입력하세요."
+                  : guide
                   ? "파란 칸에 종목명이나 티커를 입력하면 목록이 나옵니다. 고른 뒤 수량과 평균단가를 적고 추가를 누르세요."
                   : "종목명을 입력하면 목록이 나옵니다. 고른 뒤 수량과 평균단가를 입력하세요."}
             </p>
