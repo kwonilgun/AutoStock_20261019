@@ -20,10 +20,10 @@ import { incomeToKrw } from "@/lib/engine/value";
 import { currentYearMonth } from "@/lib/format";
 import { hydrateFx } from "@/lib/server/fx";
 import type { PhaseWhyNote } from "@/lib/engine/phase-why";
-import { getPhaseSetting } from "@/lib/server/phase-setting";
+import { getPhaseSetting, type PhaseSettingView } from "@/lib/server/phase-setting";
 import { hydratePrices } from "@/lib/server/prices";
 import { getCurrentUser, type SessionUser } from "@/lib/server/session";
-import { readView, shareViewLoad, viewGeneration, writeView } from "@/lib/server/view-cache";
+import { cachedViewApplies, readView, shareViewLoad, viewGeneration, writeView } from "@/lib/server/view-cache";
 import { syncValuations } from "@/lib/server/valuations";
 
 const include = {
@@ -102,19 +102,24 @@ function exampleCreates() {
 
 type PortfolioWriter = Prisma.TransactionClient | typeof prisma;
 
-function emptyPortfolioData(userId: string) {
+function emptyPortfolioData(userId: string, phase: Phase) {
   return {
     userId,
     name: "내 포트폴리오",
-    phase: "B1",
-    phaseSource: "manual",
+    phase,
+    phaseSource: "admin" as const,
     fxSource: "auto",
     fxUpdatedAt: new Date(0),
   };
 }
 
-export function createStarterPortfolio(db: PortfolioWriter, userId: string) {
-  return db.portfolio.create({ data: emptyPortfolioData(userId) });
+async function starterData(userId: string) {
+  const setting = await getPhaseSetting();
+  return emptyPortfolioData(userId, setting.phase);
+}
+
+export async function createStarterPortfolio(db: PortfolioWriter, userId: string) {
+  return db.portfolio.create({ data: await starterData(userId) });
 }
 
 export async function ensurePortfolio(userId: string) {
@@ -146,7 +151,7 @@ export async function ensurePortfolio(userId: string) {
   }
 
   return prisma.portfolio.create({
-    data: emptyPortfolioData(userId),
+    data: await starterData(userId),
     include,
   });
 }
@@ -192,19 +197,27 @@ export const getView = cache(async (): Promise<AppView> => {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role === "admin") redirect(user.mustChangePassword ? "/admin/password" : "/admin");
+  const setting = await getPhaseSetting();
   const cached = readView<AppView>(user.id);
-  if (cached?.phaseWhy && Array.isArray(cached.quantityEvents) && Array.isArray(cached.positionDays)) return cached;
-  return shareViewLoad(user.id, () => buildView(user));
+  if (cachedViewApplies(cached, setting.phase)) return cached;
+  return shareViewLoad(user.id, () => buildView(user, setting));
 });
 
-async function buildView(user: SessionUser, attempt = 0): Promise<AppView> {
+async function buildView(user: SessionUser, setting: PhaseSettingView, attempt = 0): Promise<AppView> {
   const cached = readView<AppView>(user.id);
-  if (cached?.phaseWhy && Array.isArray(cached.quantityEvents) && Array.isArray(cached.positionDays)) return cached;
+  if (cachedViewApplies(cached, setting.phase)) return cached;
   const gen = viewGeneration(user.id);
-  const setting = await getPhaseSetting();
   const portfolio = await hydratePrices(await hydrateFx(await ensurePortfolio(user.id)));
   const phase = setting.phase;
   const phaseSource: PhaseSource = "admin";
+  if (portfolio.phase !== phase || portfolio.phaseSource !== "admin") {
+    await prisma.portfolio.update({
+      where: { id: portfolio.id },
+      data: { phase, phaseSource: "admin" },
+    });
+    portfolio.phase = phase;
+    portfolio.phaseSource = "admin";
+  }
   const targets = targetWeights(phase, setting.weights).weights;
   const holdings = portfolio.holdings.map(toHoldingInput);
   const month = currentYearMonth();
@@ -283,12 +296,13 @@ async function buildView(user: SessionUser, attempt = 0): Promise<AppView> {
     quantityEvents: changes,
     positionDays,
   };
-  if (attempt < 2 && gen !== viewGeneration(user.id)) return buildView(user, attempt + 1);
+  if (attempt < 2 && gen !== viewGeneration(user.id)) return buildView(user, await getPhaseSetting(), attempt + 1);
   writeView(user.id, view, gen);
   return view;
 }
 
 export async function replaceWithExample(portfolioId: string) {
+  const setting = await getPhaseSetting();
   await prisma.$transaction([
     prisma.holding.deleteMany({ where: { portfolioId } }),
     prisma.incomeEvent.deleteMany({ where: { portfolioId } }),
@@ -297,8 +311,8 @@ export async function replaceWithExample(portfolioId: string) {
       where: { id: portfolioId },
       data: {
         name: "예시 포트폴리오",
-        phase: "B1",
-        phaseSource: "manual",
+        phase: setting.phase,
+        phaseSource: "admin",
         usdKrw: EXAMPLE_FX,
         fxSource: "manual",
         fxUpdatedAt: new Date(),

@@ -1,3 +1,4 @@
+import type { Phase } from "@/lib/engine/types";
 import { seoulDay } from "@/lib/format";
 
 const TTL_MS = 60_000;
@@ -53,6 +54,20 @@ export function forgetViews(userId?: string) {
 
 export function viewGeneration(userId: string) {
   return generation(userId);
+}
+
+/** 관리자가 국면을 바꾼 뒤에도 탭 전환 기억이 예전 국면을 보여 주면 안 된다. */
+export function cachedViewApplies<T extends { phase: Phase; phaseWhy?: unknown; quantityEvents?: unknown; positionDays?: unknown }>(
+  cached: T | null | undefined,
+  phase: Phase,
+): cached is T {
+  return Boolean(
+    cached &&
+      cached.phase === phase &&
+      cached.phaseWhy &&
+      Array.isArray(cached.quantityEvents) &&
+      Array.isArray(cached.positionDays),
+  );
 }
 
 export function readView<T>(userId: string): T | null {

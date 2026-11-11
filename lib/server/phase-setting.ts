@@ -70,14 +70,24 @@ export async function savePhaseSetting(
 ) {
   const weightsJson = data.overrides ? JSON.stringify(data.overrides) : undefined;
   const whyJson = data.whyNotes !== undefined ? stringifyWhyNotes(data.whyNotes) : undefined;
-  await prisma.phaseSetting.upsert({
-    where: { id: ID },
-    create: { id: ID, phase: data.phase ?? "B1", weightsJson: weightsJson ?? "", whyJson: whyJson ?? "", updatedBy },
-    update: {
-      ...(data.phase ? { phase: data.phase } : {}),
-      ...(weightsJson != null ? { weightsJson } : {}),
-      ...(whyJson != null ? { whyJson } : {}),
-      updatedBy,
-    },
-  });
+  const phase = data.phase;
+  await prisma.$transaction([
+    prisma.phaseSetting.upsert({
+      where: { id: ID },
+      create: { id: ID, phase: phase ?? "B1", weightsJson: weightsJson ?? "", whyJson: whyJson ?? "", updatedBy },
+      update: {
+        ...(phase ? { phase } : {}),
+        ...(weightsJson != null ? { weightsJson } : {}),
+        ...(whyJson != null ? { whyJson } : {}),
+        updatedBy,
+      },
+    }),
+    ...(phase
+      ? [
+          prisma.portfolio.updateMany({
+            data: { phase, phaseSource: "admin" },
+          }),
+        ]
+      : []),
+  ]);
 }
