@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useActionState } from "react";
+import { LOGIN_SPLASH_KEY } from "@/components/layout/SplashScreen";
 import type { AuthState } from "@/lib/server/auth-actions";
 
 export function AuthForm({
@@ -24,6 +25,11 @@ export function AuthForm({
   const passwordLockedRef = useRef(blockAutofill);
   const formRef = useRef<HTMLFormElement>(null);
   const submitLabel = mode === "login" ? "로그인" : "가입하고 시작";
+
+  useEffect(() => {
+    if (mode !== "login" || !state?.message) return;
+    sessionStorage.removeItem(LOGIN_SPLASH_KEY);
+  }, [mode, state]);
 
   useEffect(() => {
     if (!blockAutofill) return;
@@ -58,7 +64,15 @@ export function AuthForm({
   }
 
   return (
-    <form ref={formRef} action={formAction} className="relative mt-6 grid gap-3" autoComplete={blockAutofill ? "off" : undefined}>
+    <form
+      ref={formRef}
+      action={formAction}
+      className="relative mt-6 grid gap-3"
+      autoComplete={blockAutofill ? "off" : undefined}
+      onSubmit={() => {
+        if (mode === "login") sessionStorage.setItem(LOGIN_SPLASH_KEY, "1");
+      }}
+    >
       {blockAutofill ? (
         <div aria-hidden="true" className="pointer-events-none absolute h-0 w-0 overflow-hidden opacity-0">
           <input type="text" tabIndex={-1} autoComplete="username" defaultValue="" />

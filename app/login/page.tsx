@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import logo from "../../rootoneai.jpg";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { signIn } from "@/lib/server/auth-actions";
 import { getCurrentUser } from "@/lib/server/session";
@@ -10,6 +11,13 @@ export default async function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
+      <img
+        src={logo.src}
+        alt="Rootone AI"
+        width={64}
+        height={64}
+        className="mb-3 h-16 w-16 self-center rounded-full object-cover"
+      />
       <p className="text-sm text-[#6d675d]">에그밸런스</p>
       <h1 className="mt-1 text-2xl font-semibold">로그인</h1>
       <p className="mt-2 text-sm leading-6 text-[#5c564c]">

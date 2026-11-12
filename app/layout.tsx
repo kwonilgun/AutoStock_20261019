@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AppChrome } from "@/components/layout/AppChrome";
+import { SplashScreen } from "@/components/layout/SplashScreen";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {REMOTE_HMR_GUARD}
           </Script>
         ) : null}
+        <SplashScreen />
         <AppChrome>{children}</AppChrome>
       </body>
     </html>
