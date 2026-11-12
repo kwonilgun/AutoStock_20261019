@@ -93,7 +93,8 @@ function GroupSummary({ sleeve, color }: { sleeve: GapView; color: string }) {
         </span>
         <span className={`shrink-0 text-[18px] font-bold tabular-nums ${gapTone(sleeve.status)}`}>{formatPp(sleeve.gapPp)}</span>
       </div>
-      <p className="mt-1.5 pl-5 text-[13px] leading-5 text-[#4e5968]">
+      <p className="mt-1.5 pl-5 text-[13px]  tabular-nums tracking-tight text-[#191f28]">합계 {won(sleeve.currentKrw)}</p>
+      <p className="mt-0.5 pl-5 text-[13px] leading-5 text-[#4e5968]">
         현재 {formatPercent(sleeve.currentWeight)} · 목표 {formatPercent(sleeve.targetWeight)} · {STATUS_LABEL[sleeve.status]}
       </p>
       <p className={`mt-0.5 pl-5 text-[13px] font-semibold ${gapTone(sleeve.status)}`}>{gapMoney(sleeve)}</p>
@@ -114,7 +115,8 @@ function MemberLine({ sleeve, color }: { sleeve: GapView; color: string }) {
         </span>
         <span className={`shrink-0 text-[14px] font-semibold tabular-nums ${gapTone(sleeve.status)}`}>{formatPp(sleeve.gapPp)}</span>
       </div>
-      <p className="mt-1 pl-3.5 text-[12px] leading-5 text-[#8b95a1]">
+      <p className="mt-1 pl-3.5 text-[13px] font-semibold tabular-nums text-[#191f28]">{won(sleeve.currentKrw)}</p>
+      <p className="mt-0.5 pl-3.5 text-[12px] leading-5 text-[#8b95a1]">
         현재 {formatPercent(sleeve.currentWeight)} · 목표 {formatPercent(sleeve.targetWeight)} · {STATUS_LABEL[sleeve.status]}
       </p>
       <p className={`mt-0.5 pl-3.5 text-[12px] ${gapTone(sleeve.status)}`}>{gapMoney(sleeve)}</p>
