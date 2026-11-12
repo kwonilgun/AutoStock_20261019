@@ -11,9 +11,21 @@ function won(value: number): string {
   return `${sign}${formatNumber(Math.abs(rounded))}원`;
 }
 
+function signedWon(value: number): string {
+  const rounded = Math.round(value);
+  if (rounded === 0) return "0원";
+  return `${rounded > 0 ? "+" : "−"}${formatNumber(Math.abs(rounded))}원`;
+}
+
+function toneClass(value: number): string {
+  if (Math.round(value) === 0) return "text-[#8b95a1]";
+  return value > 0 ? "text-[#f04452]" : "text-[#3182f6]";
+}
+
 export function AssetSummary({
   totalKrw,
   holdingCount,
+  priceGainKrw,
   weightWarning,
   blockedReason,
   fx,
@@ -21,6 +33,8 @@ export function AssetSummary({
 }: {
   totalKrw: number;
   holdingCount: number;
+  /** 평균가 대비 주식 시세 손익 합계. 평균가가 있는 종목이 없으면 null. */
+  priceGainKrw: number | null;
   weightWarning: boolean;
   blockedReason: string | null;
   fx: number;
@@ -41,8 +55,13 @@ export function AssetSummary({
         <SeoulClock />
       </div>
       <p className="mt-1 text-[32px] leading-tight font-bold tracking-tight text-[#191f28] tabular-nums">{won(totalKrw)}</p>
-      <p className="mt-2 text-[14px] text-[#8b95a1]">
-        {holdingCount === 0 ? "아래에 종목이나 현금을 입력하면 총자산이 계산됩니다." : `보유 ${holdingCount}개`}
+      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-[14px] text-[#8b95a1]">
+        <span>
+          {holdingCount === 0 ? "아래에 종목이나 현금을 입력하면 총자산이 계산됩니다." : `보유 ${holdingCount}개,`}
+        </span>
+        {holdingCount > 0 && priceGainKrw != null ? (
+          <span>평가손익 {signedWon(priceGainKrw)}</span>
+        ) : null}
       </p>
       {weightWarning ? (
         <p className="mt-3 text-[13px] font-medium text-[#f04452]">비중 합이 100%가 아닙니다. 입력값을 다시 확인해 주세요.</p>

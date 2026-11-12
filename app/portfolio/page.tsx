@@ -3,6 +3,7 @@ import { AssetSummary } from "@/components/portfolio/AssetSummary";
 import { HoldingDesk } from "@/components/portfolio/HoldingDesk";
 import { SLEEVE_LABEL } from "@/lib/engine/config";
 import { SLEEVES, type Sleeve } from "@/lib/engine/types";
+import { portfolioHoldingGain } from "@/lib/engine/value";
 import { formatNumber, formatPercent } from "@/lib/format";
 import { parseRecommendAddSeed } from "@/lib/recommendations";
 
@@ -114,13 +115,16 @@ export default async function PortfolioPage({
         );
         const mix = composition(sleeves);
         const weightSum = sleeves.reduce((sum, sleeve) => sum + sleeve.currentWeight, 0);
-        const holdingCount = view.holdings.filter((holding) => holding.quantity > 0).length;
+        const held = view.holdings.filter((holding) => holding.quantity > 0);
+        const holdingCount = held.length;
+        const priceGain = portfolioHoldingGain(held, view.portfolio.usdKrw);
 
         return (
           <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
             <AssetSummary
               totalKrw={view.result.totalKrw}
               holdingCount={holdingCount}
+              priceGainKrw={priceGain?.gainKrw ?? null}
               weightWarning={sleeves.length > 0 && Math.abs(weightSum - 1) > 0.001}
               blockedReason={view.result.blockedReason}
               fx={view.portfolio.usdKrw}
