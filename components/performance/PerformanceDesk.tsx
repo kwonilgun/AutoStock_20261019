@@ -495,7 +495,16 @@ export function PerformanceDesk({
           <SeoulClock />
         </div>
         <p className="mt-1 truncate text-[32px] leading-tight font-bold tracking-tight text-[#191f28] tabular-nums">{won(headline)}</p>
-        <p className="mt-2 truncate text-[15px] font-semibold tabular-nums">
+        {focus?.cumulativeKrw != null ? (
+          <p className="mt-2 truncate text-[15px] font-semibold tabular-nums">
+            <span className="font-medium text-[#8b95a1]">누적 수익</span>
+            <span className={`ml-1.5 ${toneClass(focus.cumulativeRate)}`}>
+              {signedWon(focus.cumulativeKrw)}
+              {focus.cumulativeRate != null ? <span className="ml-1.5">{formatReturn(focus.cumulativeRate)}</span> : null}
+            </span>
+          </p>
+        ) : null}
+        <p className={`truncate text-[15px] font-semibold tabular-nums ${focus?.cumulativeKrw != null ? "mt-1" : "mt-2"}`}>
           {change == null ? (
             <span className="font-medium text-[#8b95a1]">{caption}</span>
           ) : !changeShown && !rateShown ? (
@@ -638,10 +647,13 @@ export function PerformanceDesk({
                               : formatReturn(point.returnRate)
                             : `${signedWon(point.changeKrw)} ${formatReturn(point.returnRate)}`}
                       </p>
-                      {hasCumulativeWon(point.cumulativeKrw) && point.cumulativeRate != null ? (
-                        <p className="mt-0.5 text-[12px] font-medium tabular-nums text-[#6b7684]">
-                          누적 {signedWon(point.cumulativeKrw)}{" "}
-                          <span className={toneClass(point.cumulativeRate)}>{formatReturn(point.cumulativeRate)}</span>
+                      {point.cumulativeKrw != null ? (
+                        <p className="mt-0.5 text-[13px] font-semibold tabular-nums">
+                          <span className="font-medium text-[#8b95a1]">누적 수익 </span>
+                          <span className={toneClass(point.cumulativeRate)}>
+                            {signedWon(point.cumulativeKrw)}
+                            {point.cumulativeRate != null ? ` ${formatReturn(point.cumulativeRate)}` : ""}
+                          </span>
                         </p>
                       ) : null}
                       {point.incomeKrw !== 0 ? (
