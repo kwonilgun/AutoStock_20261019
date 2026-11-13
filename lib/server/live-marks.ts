@@ -78,11 +78,6 @@ function isDocumentRefresh(headerList: Headers) {
   return headerList.get("rsc") !== "1" && headerList.get("next-hmr-refresh") !== "1";
 }
 
-/** 탭 다시 누르기처럼, 30분이 안 지났어도 시세와 환율을 바로 다시 받는다. */
-export async function forceRefreshLiveMarks(userId: string): Promise<void> {
-  await join(userId, true);
-}
-
 /**
  * 홈·자산·수익·괴리·성과를 열 때 30분이 지난 시세와 환율만 다시 받는다. 그 안이면 저장값을 쓴다.
  * 앱을 새로고침하면 바로 다시 받는다.
