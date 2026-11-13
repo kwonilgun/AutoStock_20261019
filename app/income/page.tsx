@@ -5,7 +5,7 @@ import { seoulDay } from "@/lib/format";
 export default function IncomePage() {
   const today = seoulDay();
   return (
-    <ViewFrame>
+    <ViewFrame refreshMarks>
       {(view) => (
         <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
           <ReturnIncomeForm incomes={view.returnIncomes} points={view.valuations} today={today} usdKrw={view.portfolio.usdKrw} />

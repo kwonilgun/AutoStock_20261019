@@ -13,7 +13,6 @@ import { formatNumber } from "@/lib/format";
 import { RECOMMEND_CATEGORIES } from "@/lib/recommendations";
 import { listAnalysisReports } from "@/lib/server/analysis-reports";
 import { latestFedTarget } from "@/lib/server/fed-rate";
-import { getView } from "@/lib/server/portfolio";
 import { getRecommendationSetting } from "@/lib/server/recommendation-setting";
 
 const WEIGHT_GROUPS: { label: string; members: { sleeve: Sleeve; label: string }[] }[] = [
@@ -58,7 +57,6 @@ export default async function HomePage() {
     getRecommendationSetting(),
     listAnalysisReports(),
     latestFedTarget(),
-    getView(),
   ]);
   const recommendCount = RECOMMEND_CATEGORIES.reduce((sum, category) => sum + recommendation.items[category].length, 0);
   const updated = recommendation.updatedAt
@@ -68,7 +66,7 @@ export default async function HomePage() {
     : null;
 
   return (
-    <ViewFrame>
+    <ViewFrame refreshMarks>
       {(view) => {
         const weights = view.targets;
         const groups = WEIGHT_GROUPS.map((group) => {

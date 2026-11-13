@@ -3,8 +3,9 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { refreshQuotesAndFx } from "@/lib/server/actions";
 
-const LIVE_QUOTES = new Set(["/portfolio", "/gap", "/performance"]);
+const LIVE_QUOTES = new Set(["/", "/portfolio", "/income", "/gap", "/performance"]);
 
 const LINKS = [
   { href: "/", label: "홈", icon: HomeIcon },
@@ -32,7 +33,7 @@ export function Nav() {
               onClick={(event) => {
                 if (!LIVE_QUOTES.has(link.href) || pathname !== link.href) return;
                 event.preventDefault();
-                router.refresh();
+                void refreshQuotesAndFx().finally(() => router.refresh());
               }}
               className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] font-medium"
             >

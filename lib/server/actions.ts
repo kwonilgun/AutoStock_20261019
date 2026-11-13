@@ -12,6 +12,7 @@ import { emptyMessage } from "@/lib/engine/rebalance";
 import { incomeMoney } from "@/lib/engine/value";
 import { buildSnapshotPayload } from "@/lib/engine/snapshot";
 import { latestUsdKrw } from "@/lib/server/fx";
+import { forceRefreshLiveMarks } from "@/lib/server/live-marks";
 import { lookupName, requireQuote, searchSecurities, searchSecurity } from "@/lib/server/prices";
 import type { SecurityMatch } from "@/lib/quotes/parse";
 import { isPlainCashTicker } from "@/lib/quotes/symbol";
@@ -35,6 +36,19 @@ function fail(error: unknown): ActionResult {
   if (error instanceof z.ZodError) return { ok: false, message: "입력값을 다시 확인해 주세요." };
   if (error instanceof Error) return { ok: false, message: error.message };
   return { ok: false, message: "저장하지 못했습니다." };
+}
+
+/** 같은 탭을 다시 눌렀을 때 30분 대기 없이 시세와 환율을 다시 받는다. */
+export async function refreshQuotesAndFx(): Promise<ActionResult> {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role === "admin") return { ok: true };
+    await forceRefreshLiveMarks(user.id);
+    refresh(user.id);
+    return { ok: true };
+  } catch (error) {
+    return fail(error);
+  }
 }
 
 const fxSchema = z.object({
