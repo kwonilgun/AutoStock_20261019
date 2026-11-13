@@ -1,5 +1,4 @@
 import { headers } from "next/headers";
-import { after } from "next/server";
 import { refreshFx } from "@/lib/server/fx";
 import { ensurePortfolio } from "@/lib/server/portfolio";
 import { oldestAutoQuoteAt, refreshPrices } from "@/lib/server/prices";
@@ -73,28 +72,43 @@ function isPrefetch(headerList: Headers) {
   );
 }
 
-/** 브라우저 새로고침·앱 재실행처럼 HTML을 다시 받는 요청인지. RSC 탭 이동은 해당하지 않는다. */
+function isRscRequest(headerList: Headers) {
+  return (
+    headerList.get("rsc") === "1" ||
+    headerList.has("next-router-state-tree") ||
+    headerList.get("sec-fetch-dest") === "empty" ||
+    headerList.get("sec-fetch-mode") === "cors"
+  );
+}
+
+/** 브라우저 새로고침·앱 재실행처럼 HTML을 다시 받는 요청인지. 탭 이동은 해당하지 않는다. */
 function isDocumentRefresh(headerList: Headers) {
-  return headerList.get("rsc") !== "1" && headerList.get("next-hmr-refresh") !== "1";
+  if (headerList.get("next-hmr-refresh") === "1") return false;
+  if (isRscRequest(headerList)) return false;
+  const dest = headerList.get("sec-fetch-dest");
+  if (dest === "document") return true;
+  const mode = headerList.get("sec-fetch-mode");
+  if (mode === "navigate") return true;
+  return dest == null && mode == null;
+}
+
+/** 30분 주기처럼, 화면 전환과 상관없이 시세와 환율을 바로 다시 받는다. */
+export async function forceRefreshLiveMarks(userId: string): Promise<void> {
+  await join(userId, true);
 }
 
 /**
- * 홈·자산·수익·괴리·성과를 열 때 30분이 지난 시세와 환율만 다시 받는다. 그 안이면 저장값을 쓴다.
- * 앱을 새로고침하면 바로 다시 받는다.
+ * 앱을 새로고침하거나 다시 열 때만 시세와 환율을 다시 받는다.
+ * 탭·화면 전환에서는 저장값을 그대로 쓴다.
  */
 export async function refreshLiveMarks(): Promise<void> {
   try {
     const headerList = await headers();
     if (isPrefetch(headerList)) return;
+    if (!isDocumentRefresh(headerList)) return;
     const user = await getCurrentUser();
     if (!user || user.role === "admin") return;
-    if (isDocumentRefresh(headerList)) {
-      await join(user.id, true).catch(() => undefined);
-      return;
-    }
-    after(() => {
-      void join(user.id).catch(() => undefined);
-    });
+    await join(user.id, true).catch(() => undefined);
   } catch {
     // 시세를 못 받아도 마지막 저장값으로 화면을 연다.
   }

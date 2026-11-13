@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { LiveMarksTicker } from "@/components/layout/LiveMarksTicker";
 import { Nav } from "@/components/layout/Nav";
 import { SettingsButton } from "@/components/layout/SettingsButton";
 
@@ -24,6 +25,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       <footer className="mx-auto max-w-lg px-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] text-[12px] leading-5 text-[#8b95a1]">
         국면과 목표 비중은 관리자가 지정합니다. 매매 결정은 직접 확인한 뒤 진행해 주세요.
       </footer>
+      <LiveMarksTicker />
       <Nav />
     </div>
   );
