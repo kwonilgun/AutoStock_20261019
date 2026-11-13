@@ -15,6 +15,7 @@ const SLEEVE_COLOR: Record<Sleeve, string> = {
   GOLD: "#ffb020",
   BTC: "#ff8a00",
   REIT: "#7b61ff",
+  FUND: "#845ef7",
   KRW_CASH: "#d1d6db",
   USD_CASH: "#8b95a1",
 };
@@ -37,18 +38,20 @@ const BOND_SLEEVES: Sleeve[] = ["BOND_10Y", "BOND_30Y"];
 
 function composition(sleeves: { sleeve: Sleeve; currentWeight: number; currentKrw: number }[]): MixSlice[] {
   const held = sleeves.filter((sleeve) => sleeve.currentKrw > 0);
+  const total = held.reduce((sum, sleeve) => sum + sleeve.currentKrw, 0) || 1;
   const slices: MixSlice[] = [];
   let bondPlaced = false;
   for (const sleeve of held) {
     if (BOND_SLEEVES.includes(sleeve.sleeve)) {
       if (bondPlaced) continue;
       const bonds = held.filter((item) => BOND_SLEEVES.includes(item.sleeve));
+      const currentKrw = bonds.reduce((sum, item) => sum + item.currentKrw, 0);
       slices.push({
         id: "BOND",
         label: "채권",
         color: SLEEVE_COLOR.BOND_10Y,
-        currentWeight: bonds.reduce((sum, item) => sum + item.currentWeight, 0),
-        currentKrw: bonds.reduce((sum, item) => sum + item.currentKrw, 0),
+        currentWeight: currentKrw / total,
+        currentKrw,
       });
       bondPlaced = true;
       continue;
@@ -57,7 +60,7 @@ function composition(sleeves: { sleeve: Sleeve; currentWeight: number; currentKr
       id: sleeve.sleeve,
       label: SLEEVE_LABEL[sleeve.sleeve],
       color: SLEEVE_COLOR[sleeve.sleeve],
-      currentWeight: sleeve.currentWeight,
+      currentWeight: sleeve.currentKrw / total,
       currentKrw: sleeve.currentKrw,
     });
   }
@@ -114,7 +117,9 @@ export default async function PortfolioPage({
           (item): item is NonNullable<typeof item> => Boolean(item),
         );
         const mix = composition(sleeves);
-        const weightSum = sleeves.reduce((sum, sleeve) => sum + sleeve.currentWeight, 0);
+        const tradable = sleeves.filter((sleeve) => sleeve.sleeve !== "FUND");
+        const tradableKrw = tradable.reduce((sum, sleeve) => sum + sleeve.currentKrw, 0);
+        const weightSum = tradable.reduce((sum, sleeve) => sum + sleeve.currentWeight, 0);
         const held = view.holdings.filter((holding) => holding.quantity > 0);
         const holdingCount = held.length;
         const priceGain = portfolioHoldingGain(held, view.portfolio.usdKrw);
@@ -125,7 +130,7 @@ export default async function PortfolioPage({
               totalKrw={view.result.totalKrw}
               holdingCount={holdingCount}
               priceGainKrw={priceGain?.gainKrw ?? null}
-              weightWarning={sleeves.length > 0 && Math.abs(weightSum - 1) > 0.001}
+              weightWarning={tradableKrw > 0 && Math.abs(weightSum - 1) > 0.001}
               blockedReason={view.result.blockedReason}
               fx={view.portfolio.usdKrw}
               fxSource={view.portfolio.fxSource === "manual" ? "manual" : "auto"}

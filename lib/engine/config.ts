@@ -10,12 +10,12 @@ export const LOT_SIZE = 1;
 
 /** 자산_비중_20261019.md 국면별 배분표. 채권은 10년물과 30년물로 나눈다. 비트코인은 모든 국면에서 0이다. */
 export const PHASE_WEIGHTS: Record<Phase, Record<Sleeve, number>> = {
-  A1: { US_EQUITY: 0.25, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.05, GOLD: 0.1, BTC: 0, REIT: 0.1, KRW_CASH: 0.15, USD_CASH: 0.1 },
-  A2: { US_EQUITY: 0.35, KR_EQUITY: 0.2, BOND_10Y: 0.05, BOND_30Y: 0, GOLD: 0.1, BTC: 0, REIT: 0.15, KRW_CASH: 0.1, USD_CASH: 0.05 },
-  A3: { US_EQUITY: 0.2, KR_EQUITY: 0.1, BOND_10Y: 0.05, BOND_30Y: 0.05, GOLD: 0.2, BTC: 0, REIT: 0.05, KRW_CASH: 0.15, USD_CASH: 0.2 },
-  B1: { US_EQUITY: 0.1, KR_EQUITY: 0.05, BOND_10Y: 0.05, BOND_30Y: 0.3, GOLD: 0.15, BTC: 0, REIT: 0.05, KRW_CASH: 0.15, USD_CASH: 0.15 },
-  B2: { US_EQUITY: 0.05, KR_EQUITY: 0, BOND_10Y: 0.05, BOND_30Y: 0.35, GOLD: 0.15, BTC: 0, REIT: 0.05, KRW_CASH: 0.15, USD_CASH: 0.2 },
-  B3: { US_EQUITY: 0.15, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.1, GOLD: 0.1, BTC: 0, REIT: 0.15, KRW_CASH: 0.15, USD_CASH: 0.1 },
+  A1: { US_EQUITY: 0.25, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.05, GOLD: 0.1, BTC: 0, REIT: 0.1, FUND: 0, KRW_CASH: 0.15, USD_CASH: 0.1 },
+  A2: { US_EQUITY: 0.35, KR_EQUITY: 0.2, BOND_10Y: 0.05, BOND_30Y: 0, GOLD: 0.1, BTC: 0, REIT: 0.15, FUND: 0, KRW_CASH: 0.1, USD_CASH: 0.05 },
+  A3: { US_EQUITY: 0.2, KR_EQUITY: 0.1, BOND_10Y: 0.05, BOND_30Y: 0.05, GOLD: 0.2, BTC: 0, REIT: 0.05, FUND: 0, KRW_CASH: 0.15, USD_CASH: 0.2 },
+  B1: { US_EQUITY: 0.1, KR_EQUITY: 0.05, BOND_10Y: 0.05, BOND_30Y: 0.3, GOLD: 0.15, BTC: 0, REIT: 0.05, FUND: 0, KRW_CASH: 0.15, USD_CASH: 0.15 },
+  B2: { US_EQUITY: 0.05, KR_EQUITY: 0, BOND_10Y: 0.05, BOND_30Y: 0.35, GOLD: 0.15, BTC: 0, REIT: 0.05, FUND: 0, KRW_CASH: 0.15, USD_CASH: 0.2 },
+  B3: { US_EQUITY: 0.15, KR_EQUITY: 0.1, BOND_10Y: 0.15, BOND_30Y: 0.1, GOLD: 0.1, BTC: 0, REIT: 0.15, FUND: 0, KRW_CASH: 0.15, USD_CASH: 0.1 },
 };
 
 /** 여섯 국면의 평균. 화면의 닻 대비는 이 평균과 비교한다. */
@@ -34,6 +34,7 @@ export const ANCHOR: Record<Sleeve, number> = PHASES.reduce(
     GOLD: 0,
     BTC: 0,
     REIT: 0,
+    FUND: 0,
     KRW_CASH: 0,
     USD_CASH: 0,
   } satisfies Record<Sleeve, number>,
@@ -102,6 +103,7 @@ export const SLEEVE_LABEL: Record<Sleeve, string> = {
   GOLD: "금",
   BTC: "비트코인",
   REIT: "부동산 ETF",
+  FUND: "펀드",
   KRW_CASH: "원화",
   USD_CASH: "달러",
 };
@@ -134,6 +136,11 @@ export const DEFAULT_TICKERS = {
 
 export function isCashSleeve(sleeve: Sleeve): boolean {
   return sleeve === "KRW_CASH" || sleeve === "USD_CASH";
+}
+
+/** 공모펀드. 좌수 없이 평가금액과 손익만 두고, 목표 비중과 매매 주문에는 넣지 않는다. */
+export function isFundSleeve(sleeve: Sleeve): boolean {
+  return sleeve === "FUND";
 }
 
 export function defaultBuyInstrument(sleeve: Sleeve): DefaultInstrument | null {

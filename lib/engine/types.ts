@@ -9,6 +9,7 @@ export const SLEEVES = [
   "GOLD",
   "BTC",
   "REIT",
+  "FUND",
   "KRW_CASH",
   "USD_CASH",
 ] as const;

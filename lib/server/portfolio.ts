@@ -15,7 +15,7 @@ import {
 import { buildPerformanceReport, marksFromHoldings, type PerformanceReport } from "@/lib/engine/performance";
 import { rebalance } from "@/lib/engine/rebalance";
 import { targetWeights } from "@/lib/engine/targets";
-import type { HoldingInput, Phase, PhaseSource, RebalanceResult, Sleeve } from "@/lib/engine/types";
+import { SLEEVES, type HoldingInput, type Phase, type PhaseSource, type RebalanceResult, type Sleeve } from "@/lib/engine/types";
 import { incomeToKrw } from "@/lib/engine/value";
 import { currentYearMonth } from "@/lib/format";
 import { hydrateFx } from "@/lib/server/fx";
@@ -40,7 +40,7 @@ function isIncomeKind(value: string): value is IncomeKind {
 }
 
 function isSleeve(value: string): value is Sleeve {
-  return ["US_EQUITY", "KR_EQUITY", "BOND_10Y", "BOND_30Y", "GOLD", "BTC", "REIT", "KRW_CASH", "USD_CASH"].includes(value);
+  return (SLEEVES as readonly string[]).includes(value);
 }
 
 function migratedHolding(holding: {

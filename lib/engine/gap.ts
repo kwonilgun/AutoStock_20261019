@@ -80,6 +80,7 @@ export function gapViews(sleeves: SleeveSnapshot[]): GapView[] {
   let placed = false;
   const views: GapView[] = [];
   for (const sleeve of sleeves) {
+    if (sleeve.sleeve === "FUND") continue;
     if (isBondSleeve(sleeve.sleeve)) {
       if (!placed && parts.length > 0) {
         views.push(combineBonds(parts));

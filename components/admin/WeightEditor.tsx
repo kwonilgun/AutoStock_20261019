@@ -102,7 +102,7 @@ function PhaseWeightForm({
         {phase} {PHASE_META[phase].name} · {customized ? "관리자 수정값" : "기본표"}
       </p>
       <ul className="mt-2">
-        {SLEEVES.map((sleeve) => (
+        {SLEEVES.filter((sleeve) => sleeve !== "FUND").map((sleeve) => (
           <li key={sleeve} className="flex items-center justify-between gap-3 border-b border-[#f2f4f6] py-2.5 last:border-b-0">
             <label htmlFor={`w-${sleeve}`} className="text-[15px] font-medium text-[#333d4b]">
               {SLEEVE_LABEL[sleeve]}

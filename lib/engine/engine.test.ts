@@ -99,6 +99,7 @@ describe("목표 비중", () => {
       GOLD: 0.1,
       BTC: 0,
       REIT: 0.05,
+      FUND: 0,
       KRW_CASH: 0.05,
       USD_CASH: 0,
     } satisfies Record<Sleeve, number>;
@@ -165,6 +166,35 @@ describe("리밸런싱", () => {
       .reduce((sum, order) => sum + order.amountKrw, 0);
     expect(buys).toBe(35_000_000);
     expect(sells).toBe(35_000_000);
+  });
+
+  it("펀드 평가금액은 총자산에만 더하고 매매 주문은 바꾸지 않는다", () => {
+    const base = rebalance(exampleInput());
+    const withFund = rebalance({
+      ...exampleInput(),
+      holdings: [
+        ...exampleInput().holdings,
+        holding({
+          ticker: "미래에셋 TDF2050",
+          name: "미래에셋 TDF2050",
+          sleeve: "FUND",
+          quantity: 1,
+          price: 10_000_000,
+          avgPrice: 9_500_000,
+        }),
+      ],
+    });
+    expect(withFund.totalKrw).toBe(base.totalKrw + 10_000_000);
+    expect(withFund.orders).toEqual(base.orders);
+    expect(withFund.sleeves.find((sleeve) => sleeve.sleeve === "FUND")).toMatchObject({
+      currentKrw: 10_000_000,
+      tradeKrw: 0,
+      targetWeight: 0,
+    });
+    expect(withFund.sleeves.find((sleeve) => sleeve.sleeve === "US_EQUITY")?.currentWeight).toBeCloseTo(
+      base.sleeves.find((sleeve) => sleeve.sleeve === "US_EQUITY")?.currentWeight ?? 0,
+    );
+    expect(gapViews(withFund.sleeves).some((item) => item.id === "FUND")).toBe(false);
   });
 
   it("금 괴리 0.5%p는 건너뛰고 다른 주문 금액을 바꾸지 않는다", () => {

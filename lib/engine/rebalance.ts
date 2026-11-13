@@ -1,4 +1,4 @@
-import { ANCHOR, SLEEVE_LABEL, defaultBuyInstrument, isCashSleeve } from "./config";
+import { ANCHOR, SLEEVE_LABEL, defaultBuyInstrument, isCashSleeve, isFundSleeve } from "./config";
 import { settleBondGap, sleeveStatus } from "./gap";
 import { targetWeights } from "./targets";
 import { SLEEVES, type BondDuration, type Currency, type HoldingInput, type OrderLine, type RebalanceInput, type RebalanceResult, type Sleeve, type SleeveSnapshot } from "./types";
@@ -216,12 +216,28 @@ export function rebalance(input: RebalanceInput): RebalanceResult {
     });
   }
 
+  // 펀드 평가금액은 총자산에만 넣고, 목표 비중과 매매는 나머지 자산으로 계산한다.
+  const allocationKrw = totalKrw - totals.FUND;
   const { weights, notes } = targetWeights(input.phase, input.weights);
   const measured: SleeveSnapshot[] = SLEEVES.map((sleeve) => {
     const currentKrw = totals[sleeve];
-    const currentWeight = currentKrw / totalKrw;
+    if (isFundSleeve(sleeve) || allocationKrw <= 0) {
+      return {
+        sleeve,
+        currentKrw: isFundSleeve(sleeve) ? currentKrw : 0,
+        currentWeight: 0,
+        targetWeight: 0,
+        targetKrw: 0,
+        gapKrw: 0,
+        gapPp: 0,
+        status: "match",
+        tradeKrw: 0,
+        guardNote: null,
+      };
+    }
+    const currentWeight = currentKrw / allocationKrw;
     const targetWeight = weights[sleeve];
-    const targetKrw = won(totalKrw * targetWeight);
+    const targetKrw = won(allocationKrw * targetWeight);
     const gapKrw = targetKrw - currentKrw;
     const gapPp = (currentWeight - targetWeight) * 100;
     const status = sleeveStatus(currentWeight, targetWeight);

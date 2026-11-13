@@ -29,7 +29,8 @@ export function parseOverrides(json: string): Partial<WeightTable> {
       const weights = {} as Record<Sleeve, number>;
       let valid = true;
       for (const sleeve of SLEEVES) {
-        const value = Number(row[sleeve]);
+        const raw = row[sleeve];
+        const value = raw == null ? 0 : Number(raw);
         if (!Number.isFinite(value) || value < 0) valid = false;
         weights[sleeve] = value;
       }

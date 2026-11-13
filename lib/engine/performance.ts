@@ -54,7 +54,7 @@ type ValuedBook = {
 };
 
 function quoteFor(position: BookPosition, marks: Record<string, Quote> | null): { price: number; currency: Currency; stale: boolean } {
-  if (position.sleeve === "KRW_CASH" || position.sleeve === "USD_CASH") {
+  if (position.sleeve === "KRW_CASH" || position.sleeve === "USD_CASH" || position.sleeve === "FUND") {
     return { price: position.price, currency: position.currency, stale: false };
   }
   if (!marks) return { price: position.price, currency: position.currency, stale: false };

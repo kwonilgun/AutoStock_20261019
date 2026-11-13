@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition, type FormEvent, type Ref } from "react";
-import { DEFAULT_TICKERS, SLEEVE_LABEL, isCashSleeve } from "@/lib/engine/config";
+import { DEFAULT_TICKERS, SLEEVE_LABEL, isCashSleeve, isFundSleeve } from "@/lib/engine/config";
 import { classify, normalizeTicker, sleeveForSecurity } from "@/lib/engine/classify";
 import { SLEEVES, type Currency, type HoldingInput, type Sleeve } from "@/lib/engine/types";
 import { QUANTITY_EVENT_LABEL, type QuantityEvent } from "@/lib/engine/history";
@@ -44,6 +44,7 @@ const GROUPS: { label: string; sleeves: Sleeve[] }[] = [
   { label: "주식", sleeves: ["US_EQUITY", "KR_EQUITY"] },
   { label: "채권", sleeves: ["BOND_10Y", "BOND_30Y"] },
   { label: "자산", sleeves: ["GOLD", "BTC", "REIT"] },
+  { label: "펀드", sleeves: ["FUND"] },
   { label: "현금", sleeves: ["KRW_CASH", "USD_CASH"] },
 ];
 
@@ -76,7 +77,32 @@ const fieldClass =
 const compactFieldClass =
   "h-10 w-full rounded-xl bg-[#f2f4f6] px-3 text-[14px] font-semibold text-[#191f28] outline-none ring-[#3182f6] placeholder:font-medium placeholder:text-[#b0b8c1] focus:ring-2";
 
+function fundMarketValue(holding: HoldingInput): number | null {
+  if (holding.price == null || !Number.isFinite(holding.price) || holding.price <= 0) return null;
+  if (!Number.isFinite(holding.quantity) || holding.quantity <= 0) return null;
+  return Math.round(holding.quantity * holding.price);
+}
+
+function fundGainAmount(holding: HoldingInput): number | null {
+  const value = fundMarketValue(holding);
+  if (value == null || holding.avgPrice == null || !(holding.avgPrice > 0)) return null;
+  return value - Math.round(holding.quantity * holding.avgPrice);
+}
+
 function toDraft(holding: HoldingInput): Draft {
+  if (holding.sleeve != null && isFundSleeve(holding.sleeve)) {
+    const value = fundMarketValue(holding);
+    const gain = fundGainAmount(holding);
+    return {
+      ticker: holding.name?.trim() || holding.ticker,
+      quantity: value == null ? "" : String(value),
+      currency: "KRW",
+      price: value == null ? "" : String(value),
+      avgPrice: gain == null ? "" : String(gain),
+      sleeve: "FUND",
+      isCoveredCall: false,
+    };
+  }
   return {
     ticker: holding.ticker,
     quantity: String(holding.quantity),
@@ -89,6 +115,7 @@ function toDraft(holding: HoldingInput): Draft {
 }
 
 function withTicker(current: Draft, ticker: string): Draft {
+  if (isFundSleeve(current.sleeve)) return { ...current, ticker, currency: "KRW", isCoveredCall: false };
   const known = classify(ticker);
   return {
     ...current,
@@ -99,8 +126,8 @@ function withTicker(current: Draft, ticker: string): Draft {
   };
 }
 
-function withChoice(current: Draft, choice: SleeveChoice): Draft {
-  return withSleeve(current, choice === "BOND" ? bondSleeveFor(current) : choice);
+function withChoice(current: Draft, choice: SleeveChoice, mode: "add" | "edit"): Draft {
+  return withSleeve(current, choice === "BOND" ? bondSleeveFor(current) : choice, mode);
 }
 
 function keepsSelectedTicker(ticker: string): boolean {
@@ -112,23 +139,65 @@ function faceCashDraft(draft: Draft): boolean {
   return isCashSleeve(draft.sleeve) && !keepsSelectedTicker(draft.ticker);
 }
 
-function withSleeve(current: Draft, sleeve: Sleeve): Draft {
-  if (sleeve === "KRW_CASH" || sleeve === "USD_CASH") {
-    // 이미 고른 종목은 유지한다. 초단기 금리 ETF처럼 현금과 같은 종목을 원화·달러로 둘 수 있다.
-    if (keepsSelectedTicker(current.ticker)) return { ...current, sleeve, isCoveredCall: false };
+function withSleeve(current: Draft, sleeve: Sleeve, mode: "add" | "edit" = "edit"): Draft {
+  if (isFundSleeve(sleeve)) {
+    const leavingCash = isCashSleeve(current.sleeve) && isPlainCashTicker(current.ticker);
+    const entering = !isFundSleeve(current.sleeve);
     return {
       ...current,
       sleeve,
-      ticker: DEFAULT_TICKERS[sleeve].ticker,
-      currency: sleeve === "USD_CASH" ? "USD" : "KRW",
+      ticker: leavingCash ? "" : current.ticker,
+      currency: "KRW",
+      quantity: entering ? "" : current.quantity,
+      avgPrice: entering ? "" : current.avgPrice,
+      price: entering ? "" : current.price,
       isCoveredCall: false,
     };
   }
-  const leavingCash = isCashSleeve(current.sleeve) && isPlainCashTicker(current.ticker);
-  return { ...current, sleeve, ticker: leavingCash ? "" : current.ticker };
+  const base: Draft =
+    isFundSleeve(current.sleeve)
+      ? { ...current, quantity: "", avgPrice: "", price: "" }
+      : current;
+  if (sleeve === "KRW_CASH" || sleeve === "USD_CASH") {
+    // 수정에서 이미 고른 초단기 ETF는 유지한다. 추가는 금액만 받는다.
+    if (mode !== "add" && keepsSelectedTicker(base.ticker)) return { ...base, sleeve, isCoveredCall: false };
+    return {
+      ...base,
+      sleeve,
+      ticker: DEFAULT_TICKERS[sleeve].ticker,
+      currency: sleeve === "USD_CASH" ? "USD" : "KRW",
+      quantity: mode === "add" ? "" : base.quantity,
+      avgPrice: mode === "add" ? "" : base.avgPrice,
+      price: mode === "add" ? "" : base.price,
+      isCoveredCall: false,
+    };
+  }
+  const leavingCash = isCashSleeve(base.sleeve) && isPlainCashTicker(base.ticker);
+  return { ...base, sleeve, ticker: leavingCash ? "" : base.ticker };
+}
+
+function amountNumber(value: string): number {
+  const text = value.replace(/,/g, "").trim();
+  if (!text) return Number.NaN;
+  return Number(text);
 }
 
 function holdingPayload(draft: Draft, mode: "add" | "edit", addTo = 0) {
+  if (isFundSleeve(draft.sleeve)) {
+    const value = amountNumber(draft.quantity);
+    const gainText = draft.avgPrice.replace(/,/g, "").trim();
+    const gain = gainText === "" ? 0 : Number(gainText);
+    const cost = value - gain;
+    return {
+      ticker: draft.ticker.trim(),
+      quantity: 1,
+      currency: "KRW" as Currency,
+      price: value,
+      avgPrice: cost,
+      sleeve: draft.sleeve,
+      isCoveredCall: false,
+    };
+  }
   const cash = faceCashDraft(draft);
   const known = classify(draft.ticker);
   const avgPrice = Number(draft.avgPrice.replace(/,/g, ""));
@@ -161,6 +230,10 @@ function toneClass(value: number): string {
 }
 
 function quantityLabel(holding: HoldingInput): string {
+  if (holding.sleeve != null && isFundSleeve(holding.sleeve)) {
+    const value = fundMarketValue(holding);
+    return value == null ? "펀드" : won(value);
+  }
   const cash = holding.sleeve != null && isCashSleeve(holding.sleeve) && isPlainCashTicker(holding.ticker);
   if (cash) return holding.currency === "USD" ? formatUsd(holding.quantity) : `${formatNumber(holding.quantity)}원`;
   const qty = Number.isInteger(holding.quantity) ? formatNumber(holding.quantity) : String(holding.quantity);
@@ -168,6 +241,7 @@ function quantityLabel(holding: HoldingInput): string {
 }
 
 function holdingTitle(holding: HoldingInput): string {
+  if (holding.sleeve != null && isFundSleeve(holding.sleeve)) return holding.name?.trim() || holding.ticker;
   const name = holding.name?.trim();
   if (!name || normalizeTicker(name) === normalizeTicker(holding.ticker)) return holding.ticker;
   return `${name}-${holding.ticker}`;
@@ -343,7 +417,7 @@ function AddTickerField({
   }, [draft.ticker, picked]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || isFundSleeve(draft.sleeve)) return;
     const text = draft.ticker.trim();
     if (text.length < 2 || pickedNow) {
       setSuggestions([]);
@@ -370,7 +444,7 @@ function AddTickerField({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [active, draft.ticker, pickedNow]);
+  }, [active, draft.sleeve, draft.ticker, pickedNow]);
 
   function choose(match: SecurityMatch) {
     setPicked(match);
@@ -379,13 +453,14 @@ function AddTickerField({
     onChange(withSecurity(draft, match));
   }
 
-  const showList = active && !pickedNow && (status === "loading" || status === "done");
+  const fund = isFundSleeve(draft.sleeve);
+  const showList = !fund && active && !pickedNow && (status === "loading" || status === "done");
 
   return (
     <div className="grid gap-1.5">
       <label className="grid gap-1.5" htmlFor="add-ticker">
         <span className={`text-[13px] ${guide ? "font-bold text-[#3182f6]" : "font-medium text-[#8b95a1]"}`}>
-          {guide ? "여기에 티커를 입력" : "종목명"}
+          {fund ? "펀드명" : guide ? "여기에 티커를 입력" : "종목명"}
         </span>
         <input
           id="add-ticker"
@@ -404,7 +479,8 @@ function AddTickerField({
             hideTimer.current = setTimeout(() => setActive(false), 200);
           }}
           className={guide ? `${fieldClass} ring-2 ring-[#3182f6]` : fieldClass}
-          placeholder="종목명 또는 코드"
+          placeholder={fund ? "예: 미래에셋 TDF2050" : "종목명 또는 코드"}
+          maxLength={fund ? 80 : undefined}
           autoComplete="off"
           role="combobox"
           aria-autocomplete="list"
@@ -460,14 +536,15 @@ function HoldingFields({
   guide?: boolean;
   tickerRef?: Ref<HTMLInputElement>;
 }) {
-  const cash = faceCashDraft(draft);
+  const cash = (mode === "add" && isCashSleeve(draft.sleeve)) || faceCashDraft(draft);
+  const fund = isFundSleeve(draft.sleeve);
   if (compact) {
     const sleeveField = (
       <label className="grid gap-1">
         <span className="text-[12px] font-medium text-[#8b95a1]">자산군</span>
         <select
           value={menuValue(draft.sleeve)}
-          onChange={(event) => onChange(withChoice(draft, event.target.value as SleeveChoice))}
+          onChange={(event) => onChange(withChoice(draft, event.target.value as SleeveChoice, mode))}
           className={compactFieldClass}
         >
           {SLEEVE_MENU.map((option) => (
@@ -498,7 +575,7 @@ function HoldingFields({
         {cash ? null : (
           <label className="grid gap-1">
             <span className={`text-[12px] ${guide ? "font-bold text-[#3182f6]" : "font-medium text-[#8b95a1]"}`}>
-              {guide ? "여기에 티커를 입력" : "티커 또는 종목명"}
+              {fund ? "펀드명" : guide ? "여기에 티커를 입력" : "티커 또는 종목명"}
             </span>
             <input
               ref={tickerRef}
@@ -506,15 +583,57 @@ function HoldingFields({
               value={draft.ticker}
               onChange={(event) => onChange(withTicker(draft, event.target.value))}
               className={guide ? `${compactFieldClass} ring-2 ring-[#3182f6]` : compactFieldClass}
-              placeholder={guide ? "예: 005930, VOO" : "005930"}
+              placeholder={fund ? "예: 미래에셋 TDF2050" : guide ? "예: 005930, VOO" : "005930"}
+              maxLength={fund ? 80 : undefined}
               autoComplete="off"
               aria-describedby={guide ? "ticker-guide" : undefined}
             />
           </label>
         )}
-        {cash ? sleeveField : amountField}
-        {cash ? amountField : sleeveField}
-        {cash ? null : (
+        {cash ? sleeveField : fund ? null : amountField}
+        {cash ? (
+          <label className="grid gap-1">
+            <span className="text-[12px] font-medium text-[#8b95a1]">
+              {draft.sleeve === "USD_CASH" ? "금액(달러)" : "금액(원)"}
+            </span>
+            <input
+              required
+              value={draft.quantity}
+              onChange={(event) => onChange({ ...draft, quantity: event.target.value })}
+              inputMode="decimal"
+              className={compactFieldClass}
+              placeholder={draft.sleeve === "USD_CASH" ? "1000" : "1000000"}
+            />
+          </label>
+        ) : (
+          sleeveField
+        )}
+        {fund ? (
+          <>
+            <label className="grid gap-1">
+              <span className="text-[12px] font-medium text-[#8b95a1]">평가금액(원)</span>
+              <input
+                required
+                value={draft.quantity}
+                onChange={(event) => onChange({ ...draft, quantity: event.target.value })}
+                inputMode="decimal"
+                className={compactFieldClass}
+                placeholder="10000000"
+              />
+            </label>
+            <label className="grid gap-1">
+              <span className="text-[12px] font-medium text-[#8b95a1]">손익(원)</span>
+              <input
+                value={draft.avgPrice}
+                onChange={(event) => onChange({ ...draft, avgPrice: event.target.value })}
+                inputMode="decimal"
+                className={compactFieldClass}
+                placeholder="0"
+              />
+            </label>
+          </>
+        ) : null}
+        {cash || fund ? null : (
           <label className="grid gap-1">
             <span className="text-[12px] font-medium text-[#8b95a1]">통화</span>
             <select
@@ -527,7 +646,7 @@ function HoldingFields({
             </select>
           </label>
         )}
-        {cash ? null : (
+        {cash || fund ? null : (
           <label className="grid gap-1">
             <span className="text-[12px] font-medium text-[#8b95a1]">{mode === "edit" ? "평균 단가" : "평균단가"}</span>
             <input
@@ -554,6 +673,28 @@ function HoldingFields({
         <p className="rounded-2xl bg-[#f2f4f6] px-4 py-3 text-[14px] font-medium leading-5 text-[#4e5968]">
           {draft.sleeve === "USD_CASH" ? "달러 현금" : "원화 현금"}은 티커 없이 금액만 입력하면 됩니다.
         </p>
+      ) : fund ? (
+        <>
+          <p className="rounded-2xl bg-[#f2f4f6] px-4 py-3 text-[14px] font-medium leading-5 text-[#4e5968]">
+            펀드는 수량과 평균단가 없이 평가금액과 손익만 입력합니다. 손실은 마이너스로 적습니다.
+          </p>
+          {mode === "add" ? (
+            <AddTickerField draft={draft} onChange={onChange} guide={guide} tickerRef={tickerRef} />
+          ) : (
+            <label className="grid gap-1.5">
+              <span className="text-[13px] font-medium text-[#8b95a1]">펀드명</span>
+              <input
+                required
+                value={draft.ticker}
+                onChange={(event) => onChange(withTicker(draft, event.target.value))}
+                className={fieldClass}
+                placeholder="예: 미래에셋 TDF2050"
+                maxLength={80}
+                autoComplete="off"
+              />
+            </label>
+          )}
+        </>
       ) : mode === "add" ? (
         <AddTickerField draft={draft} onChange={onChange} guide={guide} tickerRef={tickerRef} />
       ) : (
@@ -574,7 +715,7 @@ function HoldingFields({
         <span className="text-[13px] font-medium text-[#8b95a1]">자산군</span>
         <select
           value={menuValue(draft.sleeve)}
-          onChange={(event) => onChange(withChoice(draft, event.target.value as SleeveChoice))}
+          onChange={(event) => onChange(withChoice(draft, event.target.value as SleeveChoice, mode))}
           className={fieldClass}
         >
           {SLEEVE_MENU.map((option) => (
@@ -584,10 +725,34 @@ function HoldingFields({
           ))}
         </select>
       </label>
-      <div className="grid grid-cols-2 gap-3">
+      {fund ? (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-medium text-[#8b95a1]">평가금액(원)</span>
+            <input
+              required
+              value={draft.quantity}
+              onChange={(event) => onChange({ ...draft, quantity: event.target.value })}
+              inputMode="decimal"
+              className={fieldClass}
+              placeholder="10000000"
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-medium text-[#8b95a1]">손익(원)</span>
+            <input
+              value={draft.avgPrice}
+              onChange={(event) => onChange({ ...draft, avgPrice: event.target.value })}
+              inputMode="text"
+              className={fieldClass}
+              placeholder="0"
+            />
+          </label>
+        </div>
+      ) : cash ? (
         <label className="grid gap-1.5">
           <span className="text-[13px] font-medium text-[#8b95a1]">
-            {cash ? (draft.sleeve === "USD_CASH" ? "금액(달러)" : "금액(원)") : "수량"}
+            {draft.sleeve === "USD_CASH" ? "금액(달러)" : "금액(원)"}
           </span>
           <input
             required
@@ -595,23 +760,35 @@ function HoldingFields({
             onChange={(event) => onChange({ ...draft, quantity: event.target.value })}
             inputMode="decimal"
             className={fieldClass}
-            placeholder={cash ? (draft.sleeve === "USD_CASH" ? "1000" : "1000000") : undefined}
+            placeholder={draft.sleeve === "USD_CASH" ? "1000" : "1000000"}
           />
         </label>
-        <label className="grid gap-1.5">
-          <span className="text-[13px] font-medium text-[#8b95a1]">통화</span>
-          <select
-            value={draft.currency}
-            onChange={(event) => onChange({ ...draft, currency: event.target.value as Currency })}
-            disabled={cash}
-            className={`${fieldClass} disabled:text-[#8b95a1]`}
-          >
-            <option value="KRW">KRW</option>
-            <option value="USD">USD</option>
-          </select>
-        </label>
-      </div>
-      {cash ? null : (
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-medium text-[#8b95a1]">수량</span>
+            <input
+              required
+              value={draft.quantity}
+              onChange={(event) => onChange({ ...draft, quantity: event.target.value })}
+              inputMode="decimal"
+              className={fieldClass}
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-[13px] font-medium text-[#8b95a1]">통화</span>
+            <select
+              value={draft.currency}
+              onChange={(event) => onChange({ ...draft, currency: event.target.value as Currency })}
+              className={fieldClass}
+            >
+              <option value="KRW">KRW</option>
+              <option value="USD">USD</option>
+            </select>
+          </label>
+        </div>
+      )}
+      {cash || fund ? null : (
         <label className="grid gap-1.5">
           <span className="text-[13px] font-medium text-[#8b95a1]">{mode === "edit" ? "평균 단가" : "평균단가"}</span>
           <input
@@ -624,7 +801,7 @@ function HoldingFields({
           />
         </label>
       )}
-      {mode === "edit" && !cash ? (
+      {mode === "edit" && !cash && !fund ? (
         <label className="grid gap-1.5">
           <span className="text-[13px] font-medium text-[#8b95a1]">현재가</span>
           <input
@@ -928,7 +1105,8 @@ export function HoldingDesk({
   const overviewDays = useMemo(() => overviewByDate(quantityEvents), [quantityEvents]);
 
   function renderRow(holding: HoldingInput, value: number | null) {
-    const detail = [quantityLabel(holding), priceLabel(holding)].filter(Boolean).join(" · ");
+    const fund = holding.sleeve != null && isFundSleeve(holding.sleeve);
+    const detail = fund ? "펀드" : [quantityLabel(holding), priceLabel(holding)].filter(Boolean).join(" · ");
     const gain = holdingGain(holding, fx);
     const gainTone = gain ? toneClass(gain.rate) : "";
     return (
@@ -953,15 +1131,17 @@ export function HoldingDesk({
           </div>
         </div>
         <div className="mt-2 flex items-center gap-4">
-          <button
-            type="button"
-            aria-label={`${holdingTitle(holding)} 수량 변화 기록`}
-            title="수량 변화 기록"
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f2f4f6] text-[#4e5968]"
-            onClick={() => openHistory(holding)}
-          >
-            <ClockIcon />
-          </button>
+          {fund ? null : (
+            <button
+              type="button"
+              aria-label={`${holdingTitle(holding)} 수량 변화 기록`}
+              title="수량 변화 기록"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f2f4f6] text-[#4e5968]"
+              onClick={() => openHistory(holding)}
+            >
+              <ClockIcon />
+            </button>
+          )}
           <button type="button" className="text-[13px] font-semibold text-[#3182f6]" onClick={() => openEdit(holding)}>
             수정
           </button>
@@ -985,15 +1165,29 @@ export function HoldingDesk({
     const existingCash = cash
       ? holdings.find((holding) => normalizeTicker(holding.ticker) === normalizeTicker(payload.ticker))
       : undefined;
+    const fund = isFundSleeve(draft.sleeve);
     if (!cash && tickerTaken(draft.ticker)) {
-      setAddError("이미 있는 종목입니다. 목록의 수정으로 바꿔 주세요.");
+      setAddError(fund ? "이미 있는 펀드입니다. 목록의 수정으로 바꿔 주세요." : "이미 있는 종목입니다. 목록의 수정으로 바꿔 주세요.");
       return;
     }
-    if (!(payload.quantity > 0)) {
+    if (fund) {
+      const value = amountNumber(draft.quantity);
+      const gainText = draft.avgPrice.replace(/,/g, "").trim();
+      const gain = gainText === "" ? 0 : Number(gainText);
+      if (!(value > 0)) {
+        setAddError("평가금액을 숫자로 입력해 주세요.");
+        return;
+      }
+      if (!Number.isFinite(gain) || !(value - gain > 0)) {
+        setAddError("손익은 평가금액보다 작아야 합니다.");
+        return;
+      }
+    }
+    if (!fund && !(payload.quantity > 0)) {
       setAddError(cash ? "금액을 숫자로 입력해 주세요." : "수량을 숫자로 입력해 주세요.");
       return;
     }
-    if (!cash && !(payload.avgPrice && payload.avgPrice > 0)) {
+    if (!cash && !fund && !(payload.avgPrice && payload.avgPrice > 0)) {
       setAddError("평균단가를 입력해 주세요.");
       return;
     }
@@ -1265,6 +1459,8 @@ export function HoldingDesk({
             <p id="ticker-guide" className="mt-1 text-[13px] leading-5 text-[#6b7684]">
               {addingCash
                 ? "현금은 금액만 입력하면 됩니다."
+                : isFundSleeve(draft.sleeve)
+                  ? "펀드명을 적고 평가금액과 손익을 입력하세요. 수량은 받지 않습니다."
                 : keepingTicker
                   ? "고른 종목은 그대로 두고 현금으로 셉니다. 수량과 평균단가를 입력하세요."
                   : guide
@@ -1345,8 +1541,21 @@ export function HoldingDesk({
               event.preventDefault();
               const current = editing;
               if (tickerTaken(current.draft.ticker, { id: current.id, ticker: current.originalTicker })) {
-                setEditError("이미 있는 티커입니다.");
+                setEditError(isFundSleeve(current.draft.sleeve) ? "이미 있는 펀드입니다." : "이미 있는 티커입니다.");
                 return;
+              }
+              if (isFundSleeve(current.draft.sleeve)) {
+                const value = amountNumber(current.draft.quantity);
+                const gainText = current.draft.avgPrice.replace(/,/g, "").trim();
+                const gain = gainText === "" ? 0 : Number(gainText);
+                if (!(value > 0)) {
+                  setEditError("평가금액을 숫자로 입력해 주세요.");
+                  return;
+                }
+                if (!Number.isFinite(gain) || !(value - gain > 0)) {
+                  setEditError("손익은 평가금액보다 작아야 합니다.");
+                  return;
+                }
               }
               startTransition(async () => {
                 const result = await saveHolding(holdingPayload(current.draft, "edit"));

@@ -14,6 +14,7 @@ const GROUPS: Group[] = [
   { id: "gold", sleeves: ["GOLD"], min: GUARDRAIL_MIN, max: GUARDRAIL_MAX },
   { id: "btc", sleeves: ["BTC"], min: GUARDRAIL_MIN, max: GUARDRAIL_MAX },
   { id: "reit", sleeves: ["REIT"], min: GUARDRAIL_MIN, max: GUARDRAIL_MAX },
+  { id: "fund", sleeves: ["FUND"], min: GUARDRAIL_MIN, max: GUARDRAIL_MAX },
   { id: "krw", sleeves: ["KRW_CASH"], min: GUARDRAIL_MIN, max: GUARDRAIL_MAX },
   { id: "usd", sleeves: ["USD_CASH"], min: GUARDRAIL_MIN, max: GUARDRAIL_MAX },
 ];

@@ -98,6 +98,7 @@ export function emptySleeveTotals(): Record<Sleeve, number> {
     GOLD: 0,
     BTC: 0,
     REIT: 0,
+    FUND: 0,
     KRW_CASH: 0,
     USD_CASH: 0,
   };

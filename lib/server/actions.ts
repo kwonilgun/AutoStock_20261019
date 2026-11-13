@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { buildAdjustmentBooks } from "@/lib/engine/books";
 import { classify, normalizeTicker } from "@/lib/engine/classify";
+import { isFundSleeve } from "@/lib/engine/config";
 import { INCOME_KINDS } from "@/lib/engine/history";
 import { emptyMessage } from "@/lib/engine/rebalance";
 import { incomeMoney } from "@/lib/engine/value";
@@ -18,7 +19,7 @@ import { getCurrentUser } from "@/lib/server/session";
 import { getOwnedPortfolio, getView, replaceWithExample } from "@/lib/server/portfolio";
 import { forgetViews } from "@/lib/server/view-cache";
 
-const sleeveSchema = z.enum(["US_EQUITY", "KR_EQUITY", "BOND_10Y", "BOND_30Y", "GOLD", "BTC", "REIT", "KRW_CASH", "USD_CASH"]);
+const sleeveSchema = z.enum(["US_EQUITY", "KR_EQUITY", "BOND_10Y", "BOND_30Y", "GOLD", "BTC", "REIT", "FUND", "KRW_CASH", "USD_CASH"]);
 const currencySchema = z.enum(["KRW", "USD"]);
 
 export type ActionResult = { ok: true; message?: string } | { ok: false; message: string };
@@ -79,7 +80,7 @@ export async function followAutoFx(): Promise<ActionResult> {
 }
 
 const holdingSchema = z.object({
-  ticker: z.string().trim().min(1).max(20),
+  ticker: z.string().trim().min(1).max(80),
   quantity: z.coerce.number().positive(),
   currency: currencySchema,
   price: z.coerce.number().positive().optional(),
@@ -146,12 +147,19 @@ export async function saveHolding(input: z.input<typeof holdingSchema>): Promise
     const typed = normalizeTicker(parsed.ticker);
     const sleeve = parsed.sleeve;
     const portfolio = await getOwnedPortfolio();
-    const cash = (sleeve === "KRW_CASH" || sleeve === "USD_CASH") && isPlainCashTicker(parsed.ticker);
+    const fund = isFundSleeve(sleeve);
+    const cash = !fund && (sleeve === "KRW_CASH" || sleeve === "USD_CASH") && isPlainCashTicker(parsed.ticker);
     const adding = parsed.price == null;
-    if (!cash && adding && !(parsed.avgPrice && parsed.avgPrice > 0)) {
+    if (fund && !(parsed.price && parsed.price > 0)) {
+      return { ok: false, message: "평가금액을 입력해 주세요." };
+    }
+    if (fund && !(parsed.avgPrice && parsed.avgPrice > 0)) {
+      return { ok: false, message: "손익은 평가금액보다 작아야 합니다." };
+    }
+    if (!cash && !fund && adding && !(parsed.avgPrice && parsed.avgPrice > 0)) {
       return { ok: false, message: "평균단가를 입력해 주세요." };
     }
-    const match = cash || classify(typed).sleeve ? null : await searchSecurity(parsed.ticker);
+    const match = cash || fund || classify(typed).sleeve ? null : await searchSecurity(parsed.ticker);
     const ticker = match ? normalizeTicker(match.code) : typed;
     const known = classify(ticker);
     if (match && ticker !== typed) {
@@ -163,9 +171,9 @@ export async function saveHolding(input: z.input<typeof holdingSchema>): Promise
         return { ok: false, message: `이미 있는 종목입니다(${match.name}-${ticker}). 목록의 수정으로 바꿔 주세요.` };
       }
     }
-    let currency: "KRW" | "USD" = match && adding ? (match.market === "US" ? "USD" : "KRW") : parsed.currency;
+    let currency: "KRW" | "USD" = fund ? "KRW" : match && adding ? (match.market === "US" ? "USD" : "KRW") : parsed.currency;
     let price: number | null = cash ? 1 : (parsed.price ?? null);
-    if (!cash && price == null) {
+    if (!cash && !fund && price == null) {
       const quote = await requireQuote(ticker);
       if (quote.status !== "ok") {
         return {
@@ -184,7 +192,7 @@ export async function saveHolding(input: z.input<typeof holdingSchema>): Promise
       select: { name: true },
     });
     const savedName = existing?.name && existing.name !== ticker ? existing.name : null;
-    const name = known.name ?? match?.name ?? savedName ?? (cash ? null : await lookupName(ticker)) ?? ticker;
+    const name = fund ? parsed.ticker : (known.name ?? match?.name ?? savedName ?? (cash ? null : await lookupName(ticker)) ?? ticker);
     const data = {
       ticker,
       name,
@@ -192,11 +200,12 @@ export async function saveHolding(input: z.input<typeof holdingSchema>): Promise
       altKind: sleeve === "GOLD" ? "GOLD" : sleeve === "BTC" ? "BTC" : null,
       bondDuration: sleeve === "BOND_10Y" ? "Y10" : sleeve === "BOND_30Y" ? "Y30" : null,
       isCoveredCall: sleeve === "US_EQUITY" ? (parsed.isCoveredCall ?? known.isCoveredCall) : false,
-      quantity: parsed.quantity,
+      quantity: fund ? 1 : parsed.quantity,
       currency,
       avgPrice: cash ? null : (parsed.avgPrice ?? (adding ? null : undefined)),
       manualPrice: price,
       priceUpdatedAt: new Date(),
+      ...(fund ? { priceSource: "manual" as const } : {}),
     };
     await prisma.holding.upsert({
       where: { portfolioId_ticker: { portfolioId: portfolio.id, ticker } },

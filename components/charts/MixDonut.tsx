@@ -13,6 +13,7 @@ const COLORS: Record<Sleeve, string> = {
   GOLD: "#c47b2b",
   BTC: "#e0a106",
   REIT: "#7d6244",
+  FUND: "#845ef7",
   KRW_CASH: "#8d8a82",
   USD_CASH: "#3d6b8a",
 };
