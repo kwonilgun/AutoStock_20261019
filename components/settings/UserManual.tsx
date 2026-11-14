@@ -74,11 +74,12 @@ export function UserManual() {
         <h3 className={sub}>가입</h3>
         <ol className={list}>
           <li>로그인 화면에서 <b>무료로 가입하기</b>를 누릅니다.</li>
-          <li>이메일과 비밀번호(4자 이상)를 입력하고 <b>가입하고 시작</b>을 누릅니다.</li>
+          <li>이메일과 비밀번호(4자 이상)를 입력하고 <b>가입하기</b>를 누릅니다.</li>
+          <li>가입은 바로 되지만, 관리자가 승인한 뒤에 로그인할 수 있습니다.</li>
         </ol>
         <h3 className={sub}>로그인</h3>
         <ol className={list}>
-          <li>이미 계정이 있으면 이메일과 비밀번호를 넣고 <b>로그인</b>을 누릅니다.</li>
+          <li>이미 계정이 있고 관리자 승인을 받았으면, 이메일과 비밀번호를 넣고 <b>로그인</b>을 누릅니다.</li>
           <li>관리자 계정은 이메일 칸에 관리자 ID를 넣어도 됩니다.</li>
         </ol>
         <div className={box}>
@@ -337,7 +338,7 @@ export function UserManual() {
 
       <section className={card} id="settings-guide">
         <Step n={7} title="설정에서 계정과 비밀번호를 관리합니다" />
-        <p className={body}>오른쪽 위 톱니바퀴를 누르면 설정입니다.</p>
+        <p className={body}>오른쪽 위 톱니바퀴를 누르면 설정입니다. 그 왼쪽 로그아웃을 누르면 이 기기에서 나갑니다.</p>
         <ul className={`${list} list-disc`}>
           <li>로그인한 이메일을 확인할 수 있습니다.</li>
           <li>
@@ -347,7 +348,7 @@ export function UserManual() {
             <b>비밀번호 변경</b>에서 지금 비밀번호와 새 비밀번호(4자 이상)를 넣습니다.
           </li>
           <li>
-            <b>로그아웃</b>을 누르면 이 기기에서 나갑니다. 자산 데이터는 계정에 남아 있습니다.
+            <b>로그아웃</b>은 오른쪽 위 톱니바퀴 왼쪽에 있습니다. 누르면 이 기기에서 나가며, 자산 데이터는 계정에 남아 있습니다.
           </li>
           <li>
             <b>회원 탈퇴</b>는 계정과 이 계정의 보유·기록을 지웁니다.

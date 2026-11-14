@@ -24,7 +24,7 @@ export function AuthForm({
   const emailLockedRef = useRef(blockAutofill);
   const passwordLockedRef = useRef(blockAutofill);
   const formRef = useRef<HTMLFormElement>(null);
-  const submitLabel = mode === "login" ? "로그인" : "가입하고 시작";
+  const submitLabel = mode === "login" ? "로그인" : "가입하기";
 
   useEffect(() => {
     if (mode !== "login" || !state?.message) return;
@@ -115,9 +115,11 @@ export function AuthForm({
           className="rounded-xl border border-[#e4dccb] bg-white px-3 py-2"
         />
       </label>
-      {mode === "signup" ? <p className="text-xs text-[#6d675d]">비밀번호는 4자 이상입니다.</p> : null}
+      {mode === "signup" ? (
+        <p className="text-xs leading-5 text-[#6d675d]">비밀번호는 4자 이상입니다. 가입 후에는 관리자 승인이 있어야 로그인할 수 있습니다.</p>
+      ) : null}
       {state?.message ? (
-        <p role="alert" className="text-sm text-[#8a3b2b]">
+        <p role={state.ok ? "status" : "alert"} className={`text-sm leading-6 ${state.ok ? "text-[#1f6b4a]" : "text-[#8a3b2b]"}`}>
           {state.message}
         </p>
       ) : null}

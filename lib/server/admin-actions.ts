@@ -234,6 +234,35 @@ export async function adminResetUserPassword(userId: string): Promise<AdminResul
   }
 }
 
+/** 회원 승인을 켜거나 끈다. 끄면 접속 중인 로그인도 끊긴다. */
+export async function adminSetUserApproved(userId: string, approved: boolean): Promise<AdminResult> {
+  try {
+    await requireAdmin();
+    const id = z.string().min(1).parse(userId);
+    const next = z.boolean().parse(approved);
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true },
+    });
+    if (!target || target.role !== "user") return { ok: false, message: "사용자를 찾지 못했습니다." };
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: target.id },
+        data: { approved: next },
+      }),
+      ...(next ? [] : [prisma.session.deleteMany({ where: { userId: target.id } })]),
+    ]);
+    if (!next) forgetViews(target.id);
+    revalidatePath("/admin/users");
+    return {
+      ok: true,
+      message: next ? `${target.email} 계정을 승인했습니다.` : `${target.email} 승인을 껐습니다. 로그인할 수 없습니다.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 /** 로그인한 회원의 계정, 세션, 포트폴리오를 지운다. 관리자 계정은 지울 수 없다. */
 export async function adminDeleteUser(userId: string): Promise<AdminResult> {
   try {

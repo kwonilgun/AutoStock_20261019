@@ -6,11 +6,12 @@ import { z } from "zod";
 import { investorStyleOf } from "@/lib/engine/investor";
 import { prisma } from "@/lib/db";
 import { ADMIN_ID, ensureAdminAccount, isUniqueEmailError, registerUser } from "@/lib/server/account";
+import { loginAllowed } from "@/lib/server/approval";
 import { hashPassword, verifyPassword } from "@/lib/server/password";
 import { createSession, destroySession, getCurrentUser } from "@/lib/server/session";
 import { forgetViews } from "@/lib/server/view-cache";
 
-export type AuthState = { message: string } | null;
+export type AuthState = { message: string; ok?: boolean } | null;
 
 const credentials = z.object({
   email: z.string().trim().toLowerCase().email("이메일 형식을 확인해 주세요.").max(200),
@@ -42,6 +43,9 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   const valid = await verifyPassword(parsed.data.password, user?.passwordHash);
   if (!user || !valid) return { message: "아이디(이메일) 또는 비밀번호가 올바르지 않습니다." };
+  if (!loginAllowed(user)) {
+    return { message: "관리자 승인 전에는 로그인할 수 없습니다. 승인 후 다시 시도해 주세요." };
+  }
   await createSession(user.id);
   if (user.role === "admin") redirect(user.mustChangePassword ? "/admin/password" : "/admin");
   redirect("/");
@@ -54,13 +58,12 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   });
   if (!parsed.success) return { message: fieldMessage(parsed.error) };
   try {
-    const user = await registerUser(parsed.data.email, parsed.data.password);
-    await createSession(user.id);
+    await registerUser(parsed.data.email, parsed.data.password);
   } catch (error) {
     if (isUniqueEmailError(error)) return { message: "이미 가입된 이메일입니다." };
     return { message: "가입하지 못했습니다. 잠시 뒤 다시 시도해 주세요." };
   }
-  redirect("/");
+  redirect("/login?joined=1");
 }
 
 export async function signOut() {

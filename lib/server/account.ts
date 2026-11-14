@@ -11,7 +11,7 @@ export async function registerUser(email: string, password: string) {
   return prisma.$transaction(async (tx) => {
     const existingUsers = await tx.user.count({ where: { role: "user" } });
     const user = await tx.user.create({
-      data: { email, passwordHash },
+      data: { email, passwordHash, approved: false },
     });
     if (existingUsers === 0) {
       const claimed = await tx.portfolio.updateMany({

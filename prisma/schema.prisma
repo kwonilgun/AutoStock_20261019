@@ -21,6 +21,8 @@ model User {
   investorStyle String @default("income")
   /// 마지막으로 로그인한 시각. 로그아웃해도 남는다.
   lastLoginAt  DateTime?
+  /// 관리자 승인. 꺼져 있으면 가입은 되어 있어도 로그인할 수 없다. 새 회원은 꺼짐.
+  approved     Boolean     @default(false)
   portfolios   Portfolio[]
   sessions     Session[]
   createdAt    DateTime    @default(now())

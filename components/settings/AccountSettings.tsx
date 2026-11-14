@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { DeleteAccountRow } from "@/components/settings/DeleteAccountForm";
 import { PasswordSettingRow } from "@/components/settings/SettingsPasswordForm";
-import { signOut } from "@/lib/server/auth-actions";
 
 export function AccountSettings({ email }: { email: string }) {
   return (
@@ -19,11 +18,6 @@ export function AccountSettings({ email }: { email: string }) {
           </svg>
         </Link>
         <PasswordSettingRow />
-        <form action={signOut}>
-          <button type="submit" className="w-full py-3 text-left text-[16px] font-semibold text-[#f04452]">
-            로그아웃
-          </button>
-        </form>
       </section>
 
       <section className="mt-6 rounded-[22px] bg-white px-5 py-2">

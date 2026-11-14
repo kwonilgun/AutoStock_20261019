@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { investorStyleOf, type InvestorStyle } from "@/lib/engine/investor";
+import { loginAllowed } from "@/lib/server/approval";
 
 const COOKIE = "egg_session";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -62,6 +63,10 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   });
   if (!session || session.expiresAt.getTime() <= Date.now()) {
     if (session) await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
+    return null;
+  }
+  if (!loginAllowed(session.user)) {
+    await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
     return null;
   }
   return {
