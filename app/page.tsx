@@ -8,8 +8,10 @@ import { RecommendFold } from "@/components/home/RecommendFold";
 import { WeightFolders } from "@/components/home/WeightFolders";
 import { ReportArchive } from "@/components/recommend/ReportArchive";
 import { gapViews } from "@/lib/engine/gap";
+import { alignCumulative, buildAssetSeries, heldPositions } from "@/lib/engine/history";
 import type { Sleeve, SleeveSnapshot } from "@/lib/engine/types";
 import { formatNumber } from "@/lib/format";
+import type { AppView } from "@/lib/server/portfolio";
 import { RECOMMEND_CATEGORIES } from "@/lib/recommendations";
 import { listAnalysisReports } from "@/lib/server/analysis-reports";
 import { latestFedTarget } from "@/lib/server/fed-rate";
@@ -52,6 +54,22 @@ function won(value: number): string {
   return `${sign}${formatNumber(Math.abs(rounded))}원`;
 }
 
+function signedWon(value: number): string {
+  const rounded = Math.round(value);
+  if (rounded === 0) return "0원";
+  return `${rounded > 0 ? "+" : "−"}${formatNumber(Math.abs(rounded))}원`;
+}
+
+function cumulativeProfit(view: AppView): number | null {
+  const series = buildAssetSeries(view.valuations, "day", {
+    positionDays: view.positionDays,
+    current: heldPositions(view.holdings),
+    incomes: view.returnIncomes,
+    usdKrw: view.portfolio.usdKrw,
+  });
+  return alignCumulative(series.points).at(-1)?.cumulativeKrw ?? null;
+}
+
 export default async function HomePage() {
   const [recommendation, reports, fed] = await Promise.all([
     getRecommendationSetting(),
@@ -81,6 +99,8 @@ export default async function HomePage() {
           };
         });
 
+        const profit = cumulativeProfit(view);
+
         return (
           <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
             <AssetGuide userId={view.user.id} empty={view.result.totalKrw <= 0} />
@@ -90,6 +110,9 @@ export default async function HomePage() {
                 <SeoulClock />
               </div>
               <p className="mt-1 text-[32px] leading-tight font-bold tracking-tight text-[#191f28] tabular-nums">{won(view.result.totalKrw)}</p>
+              {profit != null ? (
+                <p className="mt-1 text-[13px] font-medium tabular-nums text-[#8b95a1]">누적수익 {signedWon(profit)}</p>
+              ) : null}
               {view.result.totalKrw <= 0 ? (
                 <Link href="/portfolio" className="mt-2 flex items-center gap-1.5 text-[15px] font-semibold text-[#3182f6]">
                   보유 종목과 현금을 입력해 주세요
