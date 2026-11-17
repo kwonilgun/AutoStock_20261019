@@ -28,6 +28,7 @@ export function RecommendEditor({ items }: { items: RecommendItems }) {
       <h2 className="text-[17px] font-bold text-[#191f28]">추천 종목</h2>
       <p className="mt-1 text-[13px] leading-5 text-[#8b95a1]">
         저장하면 홈 화면의 추천 종목 카드에 바로 보입니다. 분류마다 {RECOMMEND_MAX_ITEMS}개까지 넣을 수 있습니다.
+        현금 ETF는 자산에 넣을 때 종목을 유지한 채 현금과 같게 셉니다.
       </p>
       <div className="mt-4 grid grid-cols-3 gap-1.5">
         {RECOMMEND_CATEGORIES.map((category) => {
@@ -97,6 +98,11 @@ function CategoryForm({
 
   return (
     <div className="mt-4">
+      {category === "CASH_ETF" ? (
+        <p className="mb-3 text-[13px] leading-5 text-[#4e5968]">
+          원화 종목은 원화 현금, 달러 종목은 달러 현금으로 셉니다. 티커와 종목명을 입력하세요.
+        </p>
+      ) : null}
       <ul className="flex flex-col gap-2">
         {rows.map((row, index) => (
           <li key={index} className="rounded-2xl bg-[#f9fafb] p-3">

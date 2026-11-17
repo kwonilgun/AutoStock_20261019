@@ -253,8 +253,8 @@ export function UserManual() {
       <section className={card} id="recommend">
         <Step n={4} title="추천 종목을 참고해 자산에 넣습니다" />
         <p className={body}>
-          홈에서 <b>추천 종목</b>을 누르면 미국주식, 한국주식, 채권 ETF, 금 ETF, 부동산 ETF 목록이
-          펼쳐집니다. 관리자가 올려 둔 참고 자료입니다. 수익을 보장하지 않습니다.
+          홈에서 <b>추천 종목</b>을 누르면 미국주식, 한국주식, 채권 ETF, 금 ETF, 부동산 ETF, 현금 ETF 목록이
+          펼쳐집니다. 현금 ETF는 종목을 유지한 채 현금으로 셉니다. 관리자가 올려 둔 참고 자료입니다. 수익을 보장하지 않습니다.
         </p>
         <ol className={list}>
           <li>보고 싶은 종목을 누릅니다.</li>

@@ -536,7 +536,7 @@ function HoldingFields({
   guide?: boolean;
   tickerRef?: Ref<HTMLInputElement>;
 }) {
-  const cash = (mode === "add" && isCashSleeve(draft.sleeve)) || faceCashDraft(draft);
+  const cash = faceCashDraft(draft);
   const fund = isFundSleeve(draft.sleeve);
   if (compact) {
     const sleeveField = (
@@ -829,7 +829,9 @@ function HoldingFields({
 }
 
 function draftFromSeed(seed: RecommendAddSeed): Draft {
-  return withTicker({ ...EMPTY, sleeve: seed.sleeve, currency: seed.currency }, seed.ticker);
+  const draft = withTicker({ ...EMPTY, sleeve: seed.sleeve, currency: seed.currency }, seed.ticker);
+  if (!isCashSleeve(seed.sleeve)) return draft;
+  return { ...draft, sleeve: seed.sleeve, currency: seed.currency, isCoveredCall: false };
 }
 
 export function HoldingDesk({
@@ -929,7 +931,11 @@ export function HoldingDesk({
     setDraft(draftFromSeed(seed));
     setAddError(null);
     setAdding(true);
-    setMessage("추천 종목을 채워 두었습니다. 수량과 평균단가를 입력한 뒤 추가해 주세요.");
+    setMessage(
+      isCashSleeve(seed.sleeve)
+        ? "현금과 같은 ETF로 채워 두었습니다. 수량과 평균단가를 입력한 뒤 추가해 주세요."
+        : "추천 종목을 채워 두었습니다. 수량과 평균단가를 입력한 뒤 추가해 주세요.",
+    );
   }, [seed, seedKey]);
 
   const rows = useMemo(

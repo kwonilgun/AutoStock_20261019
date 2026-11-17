@@ -124,7 +124,9 @@ export function RecommendList({
                 <p className="mt-0.5 text-[13px] font-medium text-[#8b95a1]">{picked.item.ticker}</p>
               ) : null}
               <p className="mt-2 text-[13px] leading-5 text-[#4e5968]">
-                확인하면 자산 화면의 종목 추가에 티커와 자산군을 채워 둡니다. 수량과 평균단가를 입력한 뒤 추가하면 됩니다.
+                {picked.category === "CASH_ETF"
+                  ? "확인하면 자산 화면의 종목 추가에 티커를 채워 두고, 현금과 같은 ETF로 셉니다. 수량과 평균단가를 입력한 뒤 추가하면 됩니다."
+                  : "확인하면 자산 화면의 종목 추가에 티커와 자산군을 채워 둡니다. 수량과 평균단가를 입력한 뒤 추가하면 됩니다."}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
