@@ -28,7 +28,7 @@ export default async function AdvicePage() {
               <SeoulClock />
             </div>
             <p className="mt-2 text-[14px] leading-5 text-[#6b7684]">
-              국면, 보유, 괴리는 앱이 계산한 값을 그대로 씁니다. 글은 그 숫자를 풀어 쓴 것입니다.
+              국면, 보유, 괴리는 앱이 계산한 값을 그대로 씁니다. 아직 구현단계이고, 추후에 AI 추천과 전문가 추천을 추가할 예정입니다.
             </p>
           </section>
           <AdviceBrief brief={brief} />
