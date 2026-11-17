@@ -11,7 +11,7 @@ export default async function AdminPasswordPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <p className="text-sm text-[#6d675d]">에그밸런스 관리자</p>
+      <p className="text-sm text-[#6d675d]">에그발란스 관리자</p>
       <h1 className="mt-1 text-2xl font-semibold">비밀번호 변경</h1>
       <p className="mt-2 text-sm leading-6 text-[#5c564c]">
         {user.mustChangePassword

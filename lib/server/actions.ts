@@ -11,7 +11,6 @@ import { INCOME_KINDS } from "@/lib/engine/history";
 import { emptyMessage } from "@/lib/engine/rebalance";
 import { incomeMoney } from "@/lib/engine/value";
 import { buildSnapshotPayload } from "@/lib/engine/snapshot";
-import { latestUsdKrw } from "@/lib/server/fx";
 import { forceRefreshLiveMarks } from "@/lib/server/live-marks";
 import { lookupName, requireQuote, searchSecurities, searchSecurity } from "@/lib/server/prices";
 import type { SecurityMatch } from "@/lib/quotes/parse";
@@ -45,48 +44,6 @@ export async function refreshQuotesAndFx(): Promise<ActionResult> {
     if (!user || user.role === "admin") return { ok: true };
     await forceRefreshLiveMarks(user.id);
     refresh(user.id);
-    return { ok: true };
-  } catch (error) {
-    return fail(error);
-  }
-}
-
-const fxSchema = z.object({
-  usdKrw: z.coerce.number().positive(),
-});
-
-export async function setFx(input: { usdKrw: number }): Promise<ActionResult> {
-  try {
-    const parsed = fxSchema.parse(input);
-    const portfolio = await getOwnedPortfolio();
-    await prisma.portfolio.update({
-      where: { id: portfolio.id },
-      data: { usdKrw: parsed.usdKrw, fxSource: "manual", fxUpdatedAt: new Date() },
-    });
-    refresh(portfolio.userId);
-    return { ok: true };
-  } catch (error) {
-    return fail(error);
-  }
-}
-
-export async function followAutoFx(): Promise<ActionResult> {
-  try {
-    const portfolio = await getOwnedPortfolio();
-    await prisma.portfolio.update({
-      where: { id: portfolio.id },
-      data: { fxSource: "auto" },
-    });
-    const quote = await latestUsdKrw();
-    if (!quote?.fresh) {
-      refresh(portfolio.userId);
-      return { ok: false, message: "시세를 받지 못해 기존 환율을 유지합니다." };
-    }
-    await prisma.portfolio.update({
-      where: { id: portfolio.id },
-      data: { usdKrw: quote.rate, fxUpdatedAt: new Date() },
-    });
-    refresh(portfolio.userId);
     return { ok: true };
   } catch (error) {
     return fail(error);

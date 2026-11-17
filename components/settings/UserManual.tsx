@@ -54,7 +54,7 @@ export function UserManual() {
     <div className="flex flex-col gap-3">
       <section className={card}>
         <p className="text-[13px] font-semibold text-[#3182f6]">EGG BALANCE · USER GUIDE</p>
-        <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[#191f28]">에그밸런스 사용 설명서</h2>
+        <h2 className="mt-1 text-[20px] font-bold tracking-tight text-[#191f28]">에그발란스 사용 설명서</h2>
         <p className={body}>
           가지고 있는 자산을 넣으면, 이번 달 목표 비중과 어디가 많고 적은지를 보여 줍니다. 증권사로 주문을 보내지
           않습니다. 화면을 보고 직접 사고팔면 됩니다.
@@ -70,7 +70,7 @@ export function UserManual() {
 
       <section className={card} id="before">
         <h2 className={heading}>시작하기 전에</h2>
-        <p className={body}>에그밸런스는 이메일로 로그인하는 앱입니다. 보유 종목, 현금, 수익 기록은 로그인한 계정에만 저장됩니다.</p>
+        <p className={body}>에그발란스는 이메일로 로그인하는 앱입니다. 보유 종목, 현금, 수익 기록은 로그인한 계정에만 저장됩니다.</p>
         <h3 className={sub}>가입</h3>
         <ol className={list}>
           <li>로그인 화면에서 <b>무료로 가입하기</b>를 누릅니다.</li>
@@ -174,9 +174,8 @@ export function UserManual() {
         </ul>
         <h3 className={sub}>총자산과 환율</h3>
         <p className={body}>
-          자산 화면 맨 위에 총자산이 나옵니다. 달러 자산은 원달러 환율로 원화로 바꿉니다. 환율은 기본적으로 오늘 시세가
-          자동으로 들어갑니다. 숫자를 직접 고치면 그 값으로 고정되고, 그때 나타나는 <b>자동 환율</b>을 누르면 다시 자동으로
-          돌아갑니다.
+          자산 화면 맨 위에 총자산이 나옵니다. 달러 자산은 원달러 환율로 원화로 바꿉니다. 환율은 오늘 시세를 자동으로
+          가져오며, 앱을 열어 둔 동안 30분마다 다시 받습니다.
         </p>
         <div className={note}>
           <b>시세.</b> 종목을 추가하면 현재가를 자동으로 찾습니다. 없는 종목이거나 시세를 못 받으면 안내가 뜹니다. 티커를
@@ -241,7 +240,7 @@ export function UserManual() {
           각 줄에는 “목표보다 ○○원 많아요 / 부족해요”처럼 금액도 나옵니다. 이 금액을 보고 증권사 앱에서 직접 사고팝니다.
         </p>
         <div className={warn}>
-          <b>중요.</b> 에그밸런스는 주문을 보내지 않습니다. 화면은 안내일 뿐이고, 실제 매매는 본인이 확인한 뒤 증권사에서
+          <b>중요.</b> 에그발란스는 주문을 보내지 않습니다. 화면은 안내일 뿐이고, 실제 매매는 본인이 확인한 뒤 증권사에서
           진행합니다.
         </div>
         <div className={note}>

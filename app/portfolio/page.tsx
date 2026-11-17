@@ -133,7 +133,6 @@ export default async function PortfolioPage({
               weightWarning={tradableKrw > 0 && Math.abs(weightSum - 1) > 0.001}
               blockedReason={view.result.blockedReason}
               fx={view.portfolio.usdKrw}
-              fxSource={view.portfolio.fxSource === "manual" ? "manual" : "auto"}
             />
 
             <section className="rounded-[22px] bg-white px-4 py-3.5">

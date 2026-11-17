@@ -129,6 +129,15 @@ export async function ensurePortfolio(userId: string) {
     include,
   });
   if (existing) {
+    if (existing.fxSource !== "auto") {
+      const fxUpdatedAt = new Date(0);
+      await prisma.portfolio.update({
+        where: { id: existing.id },
+        data: { fxSource: "auto", fxUpdatedAt },
+      });
+      existing.fxSource = "auto";
+      existing.fxUpdatedAt = fxUpdatedAt;
+    }
     const stale = existing.holdings.filter((holding) => holding.sleeve === "ALT" || holding.sleeve === "CASH" || holding.sleeve === "BOND");
     await Promise.all(
       stale.map(async (holding) => {
@@ -314,8 +323,8 @@ export async function replaceWithExample(portfolioId: string) {
         phase: setting.phase,
         phaseSource: "admin",
         usdKrw: EXAMPLE_FX,
-        fxSource: "manual",
-        fxUpdatedAt: new Date(),
+        fxSource: "auto",
+        fxUpdatedAt: new Date(0),
         holdings: { create: exampleCreates() },
       },
     }),

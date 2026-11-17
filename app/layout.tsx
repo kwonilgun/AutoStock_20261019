@@ -41,9 +41,9 @@ const REMOTE_HMR_GUARD = `(function(){
 })();`;
 
 export const metadata: Metadata = {
-  title: "에그밸런스",
+  title: "에그발란스",
   description: "코스톨라니 달걀 국면에 맞춘 월간 리밸런싱 가이드",
-  appleWebApp: { capable: true, title: "에그밸런스", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "에그발란스", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

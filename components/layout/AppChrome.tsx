@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { AdviceButton } from "@/components/layout/AdviceButton";
 import { LiveMarksTicker } from "@/components/layout/LiveMarksTicker";
 import { Nav } from "@/components/layout/Nav";
 import { SettingsButton } from "@/components/layout/SettingsButton";
@@ -18,7 +19,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[#f2f4f6]">
       <header className="sticky top-0 z-10 bg-[#f2f4f6]">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
-          <p className="text-[20px] font-bold tracking-tight text-[#191f28]">에그밸런스</p>
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="text-[20px] font-bold tracking-tight text-[#191f28]">에그발란스</p>
+            <AdviceButton />
+          </div>
           <div className="flex shrink-0 items-center gap-1.5">
             <form action={signOut}>
               <button

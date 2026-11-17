@@ -24,7 +24,7 @@ export function AdminShell({ subtitle, children }: { subtitle: string; children:
       <header className="sticky top-0 z-10 bg-[#f2f4f6]/95 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
           <div className="min-w-0">
-            <p className="text-[20px] font-bold tracking-tight text-[#191f28]">에그밸런스 관리자</p>
+            <p className="text-[20px] font-bold tracking-tight text-[#191f28]">에그발란스 관리자</p>
             <p className="truncate text-[13px] text-[#8b95a1]">{subtitle}</p>
           </div>
           <div className="flex shrink-0 gap-1.5">

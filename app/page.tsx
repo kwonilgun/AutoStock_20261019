@@ -129,7 +129,7 @@ export default async function HomePage() {
                 fed: fed ? formatFedTarget(fed.low, fed.high) : "—",
                 fedWhen: fed ? formatFedDate(fed.date) : "시세 연동 전",
                 fx: formatFx(view.portfolio.usdKrw),
-                fxNote: view.portfolio.fxSource === "manual" ? "직접 입력" : "자동",
+                fxNote: "자동",
               }}
             />
 

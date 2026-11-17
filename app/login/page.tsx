@@ -24,7 +24,7 @@ export default async function LoginPage({
         height={64}
         className="mb-3 h-16 w-16 self-center rounded-full object-cover"
       />
-      <p className="text-sm text-[#6d675d]">에그밸런스</p>
+      <p className="text-sm text-[#6d675d]">에그발란스</p>
       <h1 className="mt-1 text-2xl font-semibold">로그인</h1>
       <p className="mt-2 text-sm leading-6 text-[#5c564c]">
         이메일로 로그인하면 보유, 국면, 월간 기록이 이 계정에만 저장됩니다. 새로 가입한 계정은 관리자가 승인한 뒤에 로그인할 수 있습니다.

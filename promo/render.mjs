@@ -12,7 +12,7 @@ const audioDir = path.join(root, "audio");
 const frameDir = path.join(root, "frames");
 const stillDir = path.join(root, "stills");
 const htmlPath = path.join(root, "explainer.html");
-const outPath = path.join(project, "에그밸런스_소개.mp4");
+const outPath = path.join(project, "에그발란스_소개.mp4");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const FPS = 24;
 
@@ -20,7 +20,7 @@ const SCENES = [
   {
     before: 0.45,
     after: 0.55,
-    text: "지금 얼마를 팔고, 얼마를 사야 할까요? 에그밸런스는 그 답을 목표 비율로 보여 줍니다.",
+    text: "지금 얼마를 팔고, 얼마를 사야 할까요? 에그발란스는 그 답을 목표 비율로 보여 줍니다.",
   },
   {
     before: 0.28,
@@ -55,12 +55,12 @@ const SCENES = [
   {
     before: 0.24,
     after: 0.45,
-    text: "에그밸런스는 주문을 보내지 않습니다. 같은 규칙으로, 매달 다시 맞춰 보게 해 주는 안내입니다.",
+    text: "에그발란스는 주문을 보내지 않습니다. 같은 규칙으로, 매달 다시 맞춰 보게 해 주는 안내입니다.",
   },
   {
     before: 0.3,
     after: 1.35,
-    text: "매달, 달걀의 한 칸으로. 에그밸런스.",
+    text: "매달, 달걀의 한 칸으로. 에그발란스.",
   },
 ];
 
