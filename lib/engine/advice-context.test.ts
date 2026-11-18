@@ -136,6 +136,12 @@ describe("자문 응답 검사", () => {
     expect(adviceTextProblem(sections("B1 국면에서 VOO는 그대로 둡니다. ETF로 분류합니다."), context)).toBeNull();
   });
 
+  it("종목 이름 안의 영문은 티커로 보지 않는다", () => {
+    const named = baseContext();
+    named.holdings[0] = { ...named.holdings[0], name: "SOL 국제금커버드콜액티브" };
+    expect(adviceTextProblem(sections("SOL 국제금커버드콜액티브를 그대로 둡니다."), named)).toBeNull();
+  });
+
   it("유지 자산군을 행동 칸에서 매수하라고 하면 거절한다", () => {
     expect(adviceTextProblem(sections("미국주식 매수 100만 원.", "actions"), context)).toContain("미국주식");
   });

@@ -33,9 +33,10 @@ export function adviceTextProblem(text: AdviceSections, context: AdviceContext):
 
 function foreignTicker(text: AdviceSections, context: AdviceContext): string | null {
   const allowed = new Set<string>([context.phase.id]);
-  for (const row of context.holdings) allowed.add(row.ticker.toUpperCase());
-  for (const row of context.orders) allowed.add(row.ticker.toUpperCase());
-  for (const row of context.deferred) allowed.add(row.ticker.toUpperCase());
+  for (const row of [...context.holdings, ...context.orders, ...context.deferred]) {
+    allowed.add(row.ticker.toUpperCase());
+    for (const token of row.name.toUpperCase().match(TOKEN) ?? []) allowed.add(token);
+  }
   const blob = `${text.phase}\n${text.portfolio}\n${text.actions}\n${text.leave}`;
   for (const token of blob.match(TOKEN) ?? []) {
     if (STOP.has(token) || allowed.has(token)) continue;
