@@ -18,6 +18,7 @@ import {
 import type { Currency } from "@/lib/engine/types";
 import { incomeMoney } from "@/lib/engine/value";
 import { formatGroupedInput, formatNumber, formatUsd, groupedInputCaret } from "@/lib/format";
+import { AutoIncome } from "@/components/performance/AutoIncome";
 import { addReturnIncome, deleteReturnIncome, updateReturnIncome } from "@/lib/server/actions";
 
 export type ReturnIncomeItem = IncomeLine;
@@ -154,6 +155,7 @@ export function ReturnIncomeForm({
   const [note, setNote] = useState("");
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [autoOpen, setAutoOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const formOpen = formMode !== null;
   const lifetime = useMemo(() => allIncomeTotals(incomes, usdKrw), [incomes, usdKrw]);
@@ -279,13 +281,22 @@ export function ReturnIncomeForm({
     <section className="rounded-[22px] bg-white px-5 py-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[17px] font-bold text-[#191f28]">배당·이자·판매 수익</h2>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="h-8 rounded-xl bg-[#3182f6] px-3 text-[13px] font-bold text-white"
-        >
-          추가
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setAutoOpen(true)}
+            className="h-8 rounded-xl bg-[#f2f4f6] px-3 text-[13px] font-bold text-[#191f28]"
+          >
+            자동
+          </button>
+          <button
+            type="button"
+            onClick={openAdd}
+            className="h-8 rounded-xl bg-[#3182f6] px-3 text-[13px] font-bold text-white"
+          >
+            추가
+          </button>
+        </div>
       </div>
       <p className="mt-1 text-[13px] leading-5 text-[#8b95a1]">
         받은 날을 기준으로 일별·월별·년도별 합을 봅니다. 발생한 날짜의 수익률에 더합니다. 판매 수익은 판 금액이 아니라 번 금액이며, 손실이면 −를 붙입니다.
@@ -454,6 +465,23 @@ export function ReturnIncomeForm({
           ))}
         </ul>
       )}
+
+      <AutoIncome
+        open={autoOpen}
+        existing={incomes.map((income) => ({
+          date: income.date,
+          kind: income.kind,
+          currency: incomeCurrency(income),
+          amount: incomeAmount(income),
+          note: income.note,
+        }))}
+        onClose={() => setAutoOpen(false)}
+        onSaved={(text) => {
+          setMessage(text);
+          setAutoOpen(false);
+          router.refresh();
+        }}
+      />
 
       <dialog
         ref={dialogRef}

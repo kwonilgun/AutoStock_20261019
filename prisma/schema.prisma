@@ -25,7 +25,43 @@ model User {
   approved     Boolean     @default(false)
   portfolios   Portfolio[]
   sessions     Session[]
+  llmKeys      UserLlmKey[]
+  adviceCaches AdviceCache[]
   createdAt    DateTime    @default(now())
+}
+
+/// 회원·모델별 마지막 자문. 업데이트 버튼을 누르기 전에는 다시 호출하지 않는다.
+model AdviceCache {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 요청한 모델. spark, openai, anthropic, google
+  engine    String
+  /// 글을 쓴 쪽. spark, openai, anthropic, google, draft
+  source    String
+  phase     String
+  portfolio String
+  actions   String
+  leave     String
+  notice    String?
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, engine])
+}
+
+/// 회원이 직접 넣은 상용 모델 키. 평문은 저장하지 않는다.
+model UserLlmKey {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// openai, anthropic, google
+  provider  String
+  cipher    String
+  last4     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, provider])
 }
 
 model Session {

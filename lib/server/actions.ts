@@ -128,7 +128,7 @@ export async function saveHolding(input: z.input<typeof holdingSchema>): Promise
       return { ok: false, message: "손익은 평가금액보다 작아야 합니다." };
     }
     if (!cash && !fund && adding && !(parsed.avgPrice && parsed.avgPrice > 0)) {
-      return { ok: false, message: "평균단가를 입력해 주세요." };
+      return { ok: false, message: "1주 평균금액을 입력해 주세요." };
     }
     const match = cash || fund || classify(typed).sleeve ? null : await searchSecurity(parsed.ticker);
     const ticker = match ? normalizeTicker(match.code) : typed;

@@ -1,0 +1,92 @@
+{
+  "manifest_version": 3,
+  "name": "에그발란스 보유 가져오기",
+  "version": "1.1.0",
+  "description": "로그인한 증권사 화면의 글자를 읽어 보유 종목 또는 배당, 이자, 판매 수익만 에그발란스로 보냅니다.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://api.anthropic.com/*",
+    "https://*.kbsec.com/*",
+    "https://*.truefriend.com/*",
+    "https://*.koreainvestment.com/*",
+    "https://*.miraeasset.com/*",
+    "https://*.samsungpop.com/*",
+    "https://*.samsungsecurities.com/*",
+    "https://*.shinhansec.com/*",
+    "https://*.shinhaninvest.com/*",
+    "https://*.nhqv.com/*",
+    "https://*.kiwoom.com/*",
+    "https://*.ebestsec.co.kr/*",
+    "https://*.ls-sec.co.kr/*",
+    "https://*.daishin.com/*",
+    "https://*.hmsec.com/*",
+    "https://*.sks.co.kr/*",
+    "https://*.myasset.com/*",
+    "https://*.hanwhawm.com/*",
+    "https://*.eugenefn.com/*",
+    "https://*.iprovest.com/*",
+    "https://*.hi-ib.com/*",
+    "https://*.tossinvest.com/*",
+    "https://*.imeritz.com/*",
+    "https://*.meritz.com/*",
+    "https://*.bookook.co.kr/*",
+    "https://*.dbsec.co.kr/*",
+    "https://*.capefn.com/*",
+    "https://*.leading.co.kr/*",
+    "https://*.wooriib.com/*",
+    "https://*.ibks.com/*",
+    "https://*.kg-sec.co.kr/*",
+    "https://*.hanaw.com/*"
+  ],
+  "background": {
+    "service_worker": "sw.js"
+  },
+  "externally_connectable": {
+    "matches": ["https://app.linkmedin.com/*", "http://localhost:3000/*"]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.kbsec.com/*",
+        "https://*.truefriend.com/*",
+        "https://*.koreainvestment.com/*",
+        "https://*.miraeasset.com/*",
+        "https://*.samsungpop.com/*",
+        "https://*.samsungsecurities.com/*",
+        "https://*.shinhansec.com/*",
+        "https://*.shinhaninvest.com/*",
+        "https://*.nhqv.com/*",
+        "https://*.kiwoom.com/*",
+        "https://*.ebestsec.co.kr/*",
+        "https://*.ls-sec.co.kr/*",
+        "https://*.daishin.com/*",
+        "https://*.hmsec.com/*",
+        "https://*.sks.co.kr/*",
+        "https://*.myasset.com/*",
+        "https://*.hanwhawm.com/*",
+        "https://*.eugenefn.com/*",
+        "https://*.iprovest.com/*",
+        "https://*.hi-ib.com/*",
+        "https://*.tossinvest.com/*",
+        "https://*.imeritz.com/*",
+        "https://*.meritz.com/*",
+        "https://*.bookook.co.kr/*",
+        "https://*.dbsec.co.kr/*",
+        "https://*.capefn.com/*",
+        "https://*.leading.co.kr/*",
+        "https://*.wooriib.com/*",
+        "https://*.ibks.com/*",
+        "https://*.kg-sec.co.kr/*",
+        "https://*.hanaw.com/*"
+      ],
+      "js": ["collect.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://app.linkmedin.com/*", "http://localhost:3000/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

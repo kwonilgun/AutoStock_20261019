@@ -12,6 +12,7 @@ import type { RecommendAddSeed } from "@/lib/recommendations";
 import type { SecurityMatch } from "@/lib/quotes/parse";
 import { isPlainCashTicker } from "@/lib/quotes/symbol";
 import { deleteHolding, saveHolding, suggestSecurities } from "@/lib/server/actions";
+import { AutoImport } from "@/components/portfolio/AutoImport";
 
 type Draft = {
   ticker: string;
@@ -255,7 +256,7 @@ function priceLabel(holding: HoldingInput): string {
   if (holding.price == null || (holding.sleeve != null && isCashSleeve(holding.sleeve) && isPlainCashTicker(holding.ticker))) return "";
   const current = priceText(holding.price, holding.currency);
   if (holding.avgPrice == null || !(holding.avgPrice > 0)) return current;
-  return `${current} · 평단가 ${priceText(holding.avgPrice, holding.currency)}`;
+  return `${current} · 1주 평균금액 ${priceText(holding.avgPrice, holding.currency)}`;
 }
 
 function quoteFetchedLabel(value: string | undefined): string {
@@ -648,7 +649,7 @@ function HoldingFields({
         )}
         {cash || fund ? null : (
           <label className="grid gap-1">
-            <span className="text-[12px] font-medium text-[#8b95a1]">{mode === "edit" ? "평균 단가" : "평균단가"}</span>
+            <span className="text-[12px] font-medium text-[#8b95a1]">1주 평균금액</span>
             <input
               required={mode === "add"}
               value={draft.avgPrice}
@@ -676,7 +677,7 @@ function HoldingFields({
       ) : fund ? (
         <>
           <p className="rounded-2xl bg-[#f2f4f6] px-4 py-3 text-[14px] font-medium leading-5 text-[#4e5968]">
-            펀드는 수량과 평균단가 없이 평가금액과 손익만 입력합니다. 손실은 마이너스로 적습니다.
+            펀드는 수량과 1주 평균금액 없이 평가금액과 손익만 입력합니다. 손실은 마이너스로 적습니다.
           </p>
           {mode === "add" ? (
             <AddTickerField draft={draft} onChange={onChange} guide={guide} tickerRef={tickerRef} />
@@ -790,7 +791,7 @@ function HoldingFields({
       )}
       {cash || fund ? null : (
         <label className="grid gap-1.5">
-          <span className="text-[13px] font-medium text-[#8b95a1]">{mode === "edit" ? "평균 단가" : "평균단가"}</span>
+          <span className="text-[13px] font-medium text-[#8b95a1]">1주 평균금액</span>
           <input
             required={mode === "add"}
             value={draft.avgPrice}
@@ -851,6 +852,7 @@ export function HoldingDesk({
   const appliedSeed = useRef("");
   const wasEmpty = useRef(source.length === 0);
   const [adding, setAdding] = useState(source.length === 0);
+  const [autoOpen, setAutoOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addNotice, setAddNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -933,8 +935,8 @@ export function HoldingDesk({
     setAdding(true);
     setMessage(
       isCashSleeve(seed.sleeve)
-        ? "현금과 같은 ETF로 채워 두었습니다. 수량과 평균단가를 입력한 뒤 추가해 주세요."
-        : "추천 종목을 채워 두었습니다. 수량과 평균단가를 입력한 뒤 추가해 주세요.",
+        ? "현금과 같은 ETF로 채워 두었습니다. 수량과 1주 평균금액을 입력한 뒤 추가해 주세요."
+        : "추천 종목을 채워 두었습니다. 수량과 1주 평균금액을 입력한 뒤 추가해 주세요.",
     );
   }, [seed, seedKey]);
 
@@ -1194,7 +1196,7 @@ export function HoldingDesk({
       return;
     }
     if (!cash && !fund && !(payload.avgPrice && payload.avgPrice > 0)) {
-      setAddError("평균단가를 입력해 주세요.");
+        setAddError("1주 평균금액을 입력해 주세요.");
       return;
     }
     startTransition(async () => {
@@ -1227,6 +1229,13 @@ export function HoldingDesk({
               className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f2f4f6] text-[#4e5968]"
             >
               <ClockIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => setAutoOpen(true)}
+              className="h-8 rounded-xl bg-[#f2f4f6] px-3 text-[13px] font-bold text-[#191f28]"
+            >
+              자동
             </button>
             <button
               type="button"
@@ -1263,6 +1272,21 @@ export function HoldingDesk({
           <p className="mt-3 text-[13px] leading-5 text-[#8b95a1]">원화와 달러 현금은 다음 국면의 매수 실탄으로 따로 둡니다.</p>
         ) : null}
       </section>
+
+      <AutoImport
+        open={autoOpen}
+        held={holdings.map((holding) => ({
+          ticker: normalizeTicker(holding.ticker),
+          quantity: holding.quantity,
+          avgPrice: holding.avgPrice ?? null,
+        }))}
+        onClose={() => setAutoOpen(false)}
+        onSaved={(text) => {
+          setMessage(text);
+          setAutoOpen(false);
+          router.refresh();
+        }}
+      />
 
       <dialog
         ref={deleteDialogRef}
@@ -1468,10 +1492,10 @@ export function HoldingDesk({
                 : isFundSleeve(draft.sleeve)
                   ? "펀드명을 적고 평가금액과 손익을 입력하세요. 수량은 받지 않습니다."
                 : keepingTicker
-                  ? "고른 종목은 그대로 두고 현금으로 셉니다. 수량과 평균단가를 입력하세요."
+                  ? "고른 종목은 그대로 두고 현금으로 셉니다. 수량과 1주 평균금액을 입력하세요."
                   : guide
-                  ? "파란 칸에 종목명이나 티커를 입력하면 목록이 나옵니다. 고른 뒤 수량과 평균단가를 적고 추가를 누르세요."
-                  : "종목명을 입력하면 목록이 나옵니다. 고른 뒤 수량과 평균단가를 입력하세요."}
+                  ? "파란 칸에 종목명이나 티커를 입력하면 목록이 나옵니다. 고른 뒤 수량과 1주 평균금액을 적고 추가를 누르세요."
+                  : "종목명을 입력하면 목록이 나옵니다. 고른 뒤 수량과 1주 평균금액을 입력하세요."}
             </p>
           </div>
           <HoldingFields

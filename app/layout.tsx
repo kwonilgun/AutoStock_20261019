@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AppChrome } from "@/components/layout/AppChrome";
 import { SplashScreen } from "@/components/layout/SplashScreen";
+import { loadAdviceChrome } from "@/lib/server/advice-choice";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,8 @@ export const viewport: Viewport = {
   themeColor: "#f2f4f6",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const advice = await loadAdviceChrome();
   return (
     <html lang="ko" style={{ background: "#f2f4f6" }}>
       <body style={{ background: "#f2f4f6", margin: 0 }}>
@@ -63,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </Script>
         ) : null}
         <SplashScreen />
-        <AppChrome>{children}</AppChrome>
+        <AppChrome advice={advice}>{children}</AppChrome>
       </body>
     </html>
   );

@@ -11,9 +11,8 @@ function appPath(path: string | null): string | null {
   return path;
 }
 
-export function AdviceButton() {
+function useAdviceReturn() {
   const pathname = usePathname();
-  const active = pathname === "/advice";
   const [returnTo, setReturnTo] = useState("/");
 
   useEffect(() => {
@@ -25,6 +24,28 @@ export function AdviceButton() {
     sessionStorage.setItem(RETURN_KEY, pathname);
     setReturnTo(pathname);
   }, [pathname]);
+
+  return { active: pathname === "/advice", returnTo };
+}
+
+export function AdviceBackButton() {
+  const { returnTo } = useAdviceReturn();
+
+  return (
+    <Link
+      href={returnTo}
+      className="flex h-10 items-center justify-center gap-0.5 rounded-full bg-white px-3.5 text-[13px] font-semibold text-[#4e5968]"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M15 6.5 8.5 12 15 17.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      뒤로
+    </Link>
+  );
+}
+
+export function AdviceButton() {
+  const { active, returnTo } = useAdviceReturn();
 
   return (
     <Link
