@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anthropicMessageText, openAiMessageText, sparkMessageText } from "./advice-remote";
+import { anthropicMessageText, openAiMessageText, sparkChatBody, sparkMessageText } from "./advice-remote";
 
 describe("자문 응답 본문", () => {
   it("OpenAI 호환 응답에서 글만 꺼낸다", () => {
@@ -21,5 +21,16 @@ describe("자문 응답 본문", () => {
 
   it("Spark 응답의 message 칸만 잇는다", () => {
     expect(sparkMessageText({ output: [{ type: "reasoning", content: "skip" }, { type: "message", content: "본문" }] })).toBe("본문");
+  });
+
+  it("자문과 보유 가져오기는 같은 요청 필드를 쓴다", () => {
+    expect(sparkChatBody("Qwen/qwen3.8-27b", "규칙", "표")).toEqual({
+      model: "Qwen/qwen3.8-27b",
+      system_prompt: "규칙",
+      input: "표",
+      temperature: 0.2,
+      reasoning: "off",
+      store: false,
+    });
   });
 });

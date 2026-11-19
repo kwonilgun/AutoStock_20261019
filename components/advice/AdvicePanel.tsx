@@ -4,7 +4,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AdviceBrief } from "@/components/advice/AdviceBrief";
 import { SeoulClock } from "@/components/home/SeoulClock";
+import { requestBrowserClaudeAdvice } from "@/lib/advice-claude-browser";
 import { adviceEngineLabel } from "@/lib/advice-model";
+import { readBrowserClaudeCredential, subscribeBrowserClaudeKey, syncBrowserClaudeCookie } from "@/lib/claude-browser-key";
 import { refreshAdvice } from "@/lib/server/advice-actions";
 import type { AdviceBrief as AdviceBriefView } from "@/lib/server/advice";
 
@@ -25,17 +27,62 @@ function savedLabel(cachedAt: string | null): string | null {
 
 export function AdvicePanel({ brief }: { brief: AdviceBriefView }) {
   const router = useRouter();
-  const [pending, setPending] = useState(false);
+  const [shown, setShown] = useState(brief);
+  const [pending, setPending] = useState(Boolean(brief.awaitingBrowser));
+  const [usingBrowser, setUsingBrowser] = useState(Boolean(brief.awaitingBrowser));
   const [error, setError] = useState<string | null>(null);
-  const saved = savedLabel(brief.cachedAt);
+  const saved = savedLabel(shown.cachedAt);
 
   useEffect(() => {
+    if (readBrowserClaudeCredential()) return;
+    setShown(brief);
     setPending(false);
-  }, [brief.cachedAt, brief.source, brief.phase, brief.portfolio, brief.actions, brief.leave]);
+  }, [brief]);
+
+  useEffect(() => {
+    let cancel = false;
+    async function loadWithBrowserKey() {
+      const credential = readBrowserClaudeCredential();
+      syncBrowserClaudeCookie(Boolean(credential));
+      setUsingBrowser(Boolean(credential));
+      if (!credential) {
+        if (brief.awaitingBrowser) router.refresh();
+        return;
+      }
+      if (brief.source !== "anthropic") setPending(true);
+      const result = await requestBrowserClaudeAdvice(false, credential);
+      if (cancel) return;
+      if (result.ok) setShown(result.brief);
+      else setError(result.message);
+      setPending(false);
+    }
+    void loadWithBrowserKey();
+    return () => {
+      cancel = true;
+    };
+  }, [brief.awaitingBrowser, router]);
+
+  useEffect(() => {
+    return subscribeBrowserClaudeKey(() => {
+      const credential = readBrowserClaudeCredential();
+      syncBrowserClaudeCookie(Boolean(credential));
+      setUsingBrowser(Boolean(credential));
+    });
+  }, []);
 
   async function onUpdate() {
     setError(null);
     setPending(true);
+    const credential = readBrowserClaudeCredential();
+    if (credential) {
+      syncBrowserClaudeCookie(true);
+      setUsingBrowser(true);
+      const result = await requestBrowserClaudeAdvice(true, credential);
+      if (result.ok) setShown(result.brief);
+      else setError(result.message);
+      setPending(false);
+      return;
+    }
     const result = await refreshAdvice();
     if (!result.ok) {
       setError(result.message);
@@ -51,7 +98,9 @@ export function AdvicePanel({ brief }: { brief: AdviceBriefView }) {
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <p className="text-[15px] font-medium text-[#4e5968]">오늘 자문</p>
-            <p className="truncate text-[13px] font-semibold text-[#3182f6]">{adviceEngineLabel(brief.source)}</p>
+            <p className="truncate text-[13px] font-semibold text-[#3182f6]">
+              {adviceEngineLabel(usingBrowser && pending ? "anthropic" : shown.source)}
+            </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button
@@ -67,11 +116,12 @@ export function AdvicePanel({ brief }: { brief: AdviceBriefView }) {
         </div>
         <p className="mt-2 text-[14px] leading-5 text-[#6b7684]">
           국면, 보유, 괴리는 앱이 계산한 값을 그대로 씁니다. 저장된 글이 있으면 모델을 다시 부르지 않습니다.
+          {usingBrowser ? " 자산 자동 추가에 저장한 Claude 키로 받습니다." : ""}
         </p>
         {saved ? <p className="mt-2 text-[12px] font-medium text-[#8b95a1]">{saved}</p> : null}
         {error ? <p className="mt-2 text-[13px] font-medium text-[#f04452]">{error}</p> : null}
       </section>
-      {pending ? <AdviceLoadingBody /> : <AdviceBrief brief={brief} />}
+      {pending ? <AdviceLoadingBody /> : <AdviceBrief brief={shown} />}
     </div>
   );
 }

@@ -12,6 +12,8 @@ export type AdviceModelOption = {
 export type AdviceChromeState = {
   selected: AdviceEngine;
   saved: AdviceModelOption[];
+  /** 자산 자동 추가에 Claude 키가 있으면 오늘 자문은 그 키를 쓴다. */
+  browserClaude: boolean;
 };
 
 export type LlmKeyMask = {

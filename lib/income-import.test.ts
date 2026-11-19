@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { incomeImportKey, parseImportedIncomes } from "@/lib/income-import";
+import { incomeImageClaudeBody, incomeImportKey, parseImportedIncomes } from "@/lib/income-import";
 
 describe("parseImportedIncomes", () => {
   it("코드 펜스 안의 배당, 이자, 판매 수익을 읽는다", () => {
@@ -21,6 +21,23 @@ describe("parseImportedIncomes", () => {
     ).toThrow("응답 형식");
   });
 
+  it("입금일이 없으면 해당 연도 1월 1일로 둔다", () => {
+    const thisYear = `${new Date().getFullYear()}-01-01`;
+    expect(
+      parseImportedIncomes({
+        incomes: [
+          { kind: "sale", date: "", amount: 31.03, currency: "USD", note: "화이자" },
+          { kind: "sale", amount: -10.32, currency: "USD", note: "인텔" },
+          { kind: "sale", date: "2024", amount: -76.72, currency: "USD", note: "QQQI" },
+        ],
+      }),
+    ).toEqual([
+      { kind: "sale", date: thisYear, amount: 31.03, currency: "USD", note: "화이자" },
+      { kind: "sale", date: thisYear, amount: -10.32, currency: "USD", note: "인텔" },
+      { kind: "sale", date: "2024-01-01", amount: -76.72, currency: "USD", note: "QQQI" },
+    ]);
+  });
+
   it("배당의 음수와 없는 날짜는 거절한다", () => {
     expect(() =>
       parseImportedIncomes({
@@ -32,6 +49,16 @@ describe("parseImportedIncomes", () => {
         incomes: [{ kind: "interest", date: "2026-02-31", amount: 10, currency: "KRW", note: "" }],
       }),
     ).toThrow("응답 형식");
+  });
+});
+
+describe("income image", () => {
+  it("도구 없이 이미지 블록으로 보낸다", () => {
+    const image = incomeImageClaudeBody("image/jpeg", "abc");
+    expect(image).not.toHaveProperty("tools");
+    expect(image.system).toContain("이미지");
+    expect(image.system).toContain("판매 수익");
+    expect(image.messages[0].content[0]).toEqual({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: "abc" } });
   });
 });
 

@@ -12,7 +12,7 @@ import type { RecommendAddSeed } from "@/lib/recommendations";
 import type { SecurityMatch } from "@/lib/quotes/parse";
 import { isPlainCashTicker } from "@/lib/quotes/symbol";
 import { deleteHolding, saveHolding, suggestSecurities } from "@/lib/server/actions";
-import { AutoImport } from "@/components/portfolio/AutoImport";
+import { BraveImport } from "@/components/portfolio/BraveImport";
 
 type Draft = {
   ticker: string;
@@ -852,7 +852,7 @@ export function HoldingDesk({
   const appliedSeed = useRef("");
   const wasEmpty = useRef(source.length === 0);
   const [adding, setAdding] = useState(source.length === 0);
-  const [autoOpen, setAutoOpen] = useState(false);
+  const [braveOpen, setBraveOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addNotice, setAddNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -1220,7 +1220,7 @@ export function HoldingDesk({
             <h2 className="text-[17px] font-bold text-[#191f28]">보유 종목</h2>
             {quoteFetched ? <p className="mt-0.5 text-[12px] leading-4 text-[#8b95a1]">시세 {quoteFetched}</p> : null}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5">
             <button
               type="button"
               aria-label="전체 자산 변화 기록"
@@ -1232,7 +1232,7 @@ export function HoldingDesk({
             </button>
             <button
               type="button"
-              onClick={() => setAutoOpen(true)}
+              onClick={() => setBraveOpen(true)}
               className="h-8 rounded-xl bg-[#f2f4f6] px-3 text-[13px] font-bold text-[#191f28]"
             >
               자동
@@ -1273,17 +1273,17 @@ export function HoldingDesk({
         ) : null}
       </section>
 
-      <AutoImport
-        open={autoOpen}
+      <BraveImport
+        open={braveOpen}
         held={holdings.map((holding) => ({
           ticker: normalizeTicker(holding.ticker),
           quantity: holding.quantity,
           avgPrice: holding.avgPrice ?? null,
         }))}
-        onClose={() => setAutoOpen(false)}
+        onClose={() => setBraveOpen(false)}
         onSaved={(text) => {
           setMessage(text);
-          setAutoOpen(false);
+          setBraveOpen(false);
           router.refresh();
         }}
       />

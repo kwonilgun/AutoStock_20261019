@@ -13,15 +13,23 @@ function redact(value: string): string {
     .replace(/\d{10,}/g, "[숫자]");
 }
 
-/** 보유 가져오기 실패 원인. npm run dev 터미널에만 남기고, API 키와 긴 숫자는 지운다. */
-export async function logHoldingImport(input: unknown): Promise<void> {
+function importLine(input: unknown) {
   const entry = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
-  const line = {
+  return {
     step: clip(entry.step, 80) || "unknown",
     ok: entry.ok === true,
     message: redact(clip(entry.message, 800)),
     status: typeof entry.status === "number" && Number.isFinite(entry.status) ? entry.status : null,
     detail: redact(clip(entry.detail, 4000)),
   };
-  console.log(`[holdings-import] ${JSON.stringify(line)}`);
+}
+
+/** 보유 가져오기 실패 원인. npm run dev 터미널에만 남기고, API 키와 긴 숫자는 지운다. */
+export async function logHoldingImport(input: unknown): Promise<void> {
+  console.log(`[holdings-import] ${JSON.stringify(importLine(input))}`);
+}
+
+/** 수익 이미지 가져오기 단계. npm run dev 터미널에만 남기고, API 키와 긴 숫자는 지운다. */
+export async function logIncomeImport(input: unknown): Promise<void> {
+  console.log(`[income-import] ${JSON.stringify(importLine(input))}`);
 }

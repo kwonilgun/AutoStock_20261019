@@ -37,8 +37,8 @@ export function LlmKeySettings({ keys }: { keys: LlmKeyMask[] }) {
       {open ? (
         <div className="pb-5">
           <p className="text-[13px] leading-5 text-[#6b7684]">
-            내 API 키로 오늘 자문을 받을 수 있습니다. 키를 넣지 않으면 Qwen을 사용합니다. 저장한 키는 이 설정 화면에서 다시 볼 수
-            있습니다.
+            내 API 키로 오늘 자문을 받을 수 있습니다. 키를 넣지 않으면 Qwen을 사용합니다. 자산의 자동 추가에 Claude 키를 저장해 두면
+            오늘 자문은 그 키를 사용합니다. 저장한 키는 이 설정 화면에서 다시 볼 수 있습니다.
           </p>
           <div className="mt-4 flex flex-col gap-4">
             {MEMBER_PROVIDERS.map((provider) => (

@@ -1,3 +1,4 @@
+import { claudeAdviceBody } from "@/lib/advice-claude";
 import type { MemberProvider } from "@/lib/advice-model";
 import type { AdviceContext } from "@/lib/engine/advice-context";
 import { ADVICE_SYSTEM_PROMPT, adviceUserPrompt } from "@/lib/engine/advice-prompt";
@@ -56,7 +57,7 @@ function redactSecrets(text: string): string {
   return text.replace(/sk-ant-[A-Za-z0-9_\-]+/g, "sk-ant-…").replace(/sk-[A-Za-z0-9_\-]+/g, "sk-…").replace(/AIza[0-9A-Za-z_\-]+/g, "AIza…");
 }
 
-async function postJson(url: string, headers: Record<string, string>, body: unknown): Promise<unknown> {
+async function postJson(url: string, headers: Record<string, string>, body: unknown, label = "advice"): Promise<unknown> {
   const response = await fetch(url, {
     method: "POST",
     headers,
@@ -64,30 +65,41 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
     body: JSON.stringify(body),
   });
   const raw = await response.text();
-  console.log(`[advice] response\n${JSON.stringify({ status: response.status, body: redactSecrets(raw).slice(0, 4000) })}`);
+  console.log(`[${label}] response\n${JSON.stringify({ status: response.status, body: redactSecrets(raw).slice(0, 4000) })}`);
   if (!response.ok) throw new Error(`advice model ${response.status}`);
   return JSON.parse(raw) as unknown;
 }
 
-export async function completeSpark(config: SparkModelConfig, context: AdviceContext): Promise<string> {
+/** 오늘 자문과 보유 가져오기가 같은 LM Studio 주소와 같은 필드로 접속한다. */
+export function sparkChatBody(model: string, systemPrompt: string, input: string) {
+  return {
+    model,
+    system_prompt: systemPrompt,
+    input,
+    temperature: 0.2,
+    reasoning: "off" as const,
+    store: false,
+  };
+}
+
+export async function askSpark(config: SparkModelConfig, systemPrompt: string, input: string, label = "advice"): Promise<string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (config.key) headers.Authorization = `Bearer ${config.key}`;
   const url = `${config.url}/api/v1/chat`;
-  const body = {
-    model: config.model,
-    system_prompt: ADVICE_SYSTEM_PROMPT,
-    input: adviceUserPrompt(context),
-    temperature: 0.2,
-    reasoning: "off",
-    store: false,
-  };
-  console.log(
-    `[advice] request\n${JSON.stringify({ url, model: config.model, key: config.key ? "(set)" : "(empty)", body }, null, 2)}`,
-  );
-  const payload = await postJson(url, headers, body);
-  const content = sparkMessageText(payload);
+  const body = sparkChatBody(config.model, systemPrompt, input);
+  const requestLog =
+    label === "advice"
+      ? { url, model: config.model, key: config.key ? "(set)" : "(empty)", body }
+      : { url, model: config.model, key: config.key ? "(set)" : "(empty)", chars: input.length };
+  console.log(`[${label}] request\n${JSON.stringify(requestLog, null, label === "advice" ? 2 : 0)}`);
+  const payload = await postJson(url, headers, body, label);
+  const content = sparkMessageText(payload) || openAiMessageText(payload);
   if (!content) throw new Error("advice model empty");
   return content;
+}
+
+export async function completeSpark(config: SparkModelConfig, context: AdviceContext): Promise<string> {
+  return askSpark(config, ADVICE_SYSTEM_PROMPT, adviceUserPrompt(context));
 }
 
 export async function completeMember(provider: MemberProvider, apiKey: string, context: AdviceContext): Promise<string> {
@@ -102,12 +114,7 @@ export async function completeMember(provider: MemberProvider, apiKey: string, c
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
-      {
-        model,
-        max_tokens: 4000,
-        system: ADVICE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: user }],
-      },
+      claudeAdviceBody(model, ADVICE_SYSTEM_PROMPT, user),
     );
     const content = anthropicMessageText(payload);
     if (!content) throw new Error("advice model empty");
