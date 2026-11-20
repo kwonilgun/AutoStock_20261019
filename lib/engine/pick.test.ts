@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { pickAddSeed, pickBuys, type PickBuy, type PickSnapshot } from "./pick-context";
 import { assignedPickEngine } from "@/lib/pick-engine";
-import { parsePickReply, parseStoredPick, serializeStoredPick } from "./pick-parse";
-import { PICK_SYSTEM_PROMPT } from "./pick-prompt";
+import { parsePickReason, parsePickReply, parseStoredPick, serializeStoredPick } from "./pick-parse";
+import { PICK_REASON_SYSTEM_PROMPT, PICK_SYSTEM_PROMPT, pickReasonUserPrompt } from "./pick-prompt";
 import type { HoldingInput, Sleeve, SleeveSnapshot } from "./types";
 
 function holding(partial: Partial<HoldingInput> & Pick<HoldingInput, "ticker" | "sleeve" | "quantity" | "price">): HoldingInput {
@@ -113,6 +113,17 @@ describe("추천 종목 응답", () => {
     });
     expect(parseStoredPick(stored)?.engine).toBe("spark");
     expect(parseStoredPick(stored)?.items.map((item) => item.ticker)).toEqual(["VOO"]);
+    expect(parseStoredPick(stored)?.reason ?? null).toBeNull();
+    const withReason = serializeStoredPick({
+      snapshot,
+      engine: "claude",
+      items: [{ sleeve: "US_EQUITY", ticker: "VOO", name: "Vanguard S&P 500", note: "미국 주식 ETF" }],
+      reason: "  미국주식이 부족해서 VOO를 골랐습니다.  ",
+    });
+    expect(parseStoredPick(withReason)?.reason).toBe("미국주식이 부족해서 VOO를 골랐습니다.");
+    const reset = serializeStoredPick({ snapshot, engine: "claude", items: parseStoredPick(withReason)!.items });
+    expect(reset).not.toContain("VOO를 골랐습니다");
+    expect(parseStoredPick(reset)?.reason ?? null).toBeNull();
     expect(
       parseStoredPick(JSON.stringify({ snapshot, items: [{ sleeve: "US_EQUITY", ticker: "VOO", name: "Vanguard", note: "미국" }] }))?.engine,
     ).toBe("claude");
@@ -130,5 +141,29 @@ describe("추천 종목 응답", () => {
   it("프롬프트는 살 금액을 고치지 말라고 잠근다", () => {
     expect(PICK_SYSTEM_PROMPT).toContain("살 금액과 괴리 %p는 입력 JSON이 정답이다");
     expect(PICK_SYSTEM_PROMPT).toContain("금액, 비중, 괴리 %p를 고치지 마라");
+  });
+
+  it("이유 문장만 읽고 코드 펜스와 JSON 껍질은 벗긴다", () => {
+    expect(parsePickReason("  미국주식은 괴리가 커서 VOO를 골랐습니다.  ")).toBe("미국주식은 괴리가 커서 VOO를 골랐습니다.");
+    expect(parsePickReason("```\n금은 보유가 없습니다.\n```")).toBe("금은 보유가 없습니다.");
+    expect(parsePickReason('{"reason":"채권 ETF가 10년 괴리를 메웁니다."}')).toBe("채권 ETF가 10년 괴리를 메웁니다.");
+    expect(parsePickReason("   ")).toBe("");
+    expect(parsePickReason(null)).toBe("");
+  });
+
+  it("이유 프롬프트는 화면의 종목과 괴리만 넘기고 새 종목을 막는다", () => {
+    expect(PICK_REASON_SYSTEM_PROMPT).toContain("추천 종목과 괴리는 입력 JSON이 정답이다");
+    expect(PICK_REASON_SYSTEM_PROMPT).toContain("새 종목을 추천하지 마라");
+    const snapshot: PickSnapshot = {
+      phase: { id: "B1", name: "조정" },
+      buys: [{ ...buy("US_EQUITY"), label: "미국주식", gapPp: -4.2 }],
+    };
+    const prompt = pickReasonUserPrompt(snapshot, [
+      { sleeve: "US_EQUITY", ticker: "VOO", name: "Vanguard S&P 500", note: "미국 주식 ETF" },
+    ]);
+    expect(prompt).toContain("이렇게 추천한 이유");
+    expect(prompt).toContain("VOO");
+    expect(prompt).toContain("미국주식");
+    expect(prompt).toContain("-4.2");
   });
 });

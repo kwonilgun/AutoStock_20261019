@@ -35,6 +35,23 @@ export function parsePickReply(raw: string | null, buys: PickBuy[]): PickItem[] 
   return items;
 }
 
+/** Claude가 적은 이유 문장. 코드 펜스와 JSON 껍질은 벗기고, 비어 있으면 없는 것으로 본다. */
+export function parsePickReason(raw: string | null): string {
+  if (!raw) return "";
+  const fenced = raw.match(/```(?:json|markdown|md|text)?\s*([\s\S]*?)```/i);
+  let text = (fenced?.[1] ?? raw).trim();
+  if (text.startsWith("{") && text.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(text) as { reason?: unknown; text?: unknown };
+      const inner = typeof parsed.reason === "string" ? parsed.reason : typeof parsed.text === "string" ? parsed.text : "";
+      if (inner.trim()) text = inner.trim();
+    } catch {
+      // 중괄호로 시작해도 문장이면 그대로 보여 준다.
+    }
+  }
+  return text.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 3000);
+}
+
 function readPicks(raw: string | null): unknown[] {
   if (!raw) return [];
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -54,10 +71,19 @@ export type StoredPick = {
   snapshot: PickSnapshot;
   items: PickItem[];
   engine: PickEngine;
+  /** 이미 받은 추천 이유. 다시 받기로 종목을 새로 쓰면 비운다. */
+  reason?: string | null;
 };
 
 export function serializeStoredPick(body: StoredPick): string {
-  return JSON.stringify(body);
+  const reason = readStoredReason(body.reason);
+  const stored = {
+    snapshot: body.snapshot,
+    items: body.items,
+    engine: body.engine,
+    ...(reason ? { reason } : {}),
+  };
+  return JSON.stringify(stored);
 }
 
 /** 저장된 추천을 다시 읽는다. 종목이 없거나 형식이 깨지면 없는 것으로 본다. */
@@ -75,7 +101,18 @@ export function parseStoredPick(raw: string): StoredPick | null {
   const items = parsePickReply(JSON.stringify({ picks }), snapshot.buys);
   if (items.length === 0) return null;
   const rawEngine = (value as { engine?: unknown }).engine;
-  return { snapshot, items, engine: parsePickEngine(typeof rawEngine === "string" ? rawEngine : undefined) };
+  return {
+    snapshot,
+    items,
+    engine: parsePickEngine(typeof rawEngine === "string" ? rawEngine : undefined),
+    reason: readStoredReason((value as { reason?: unknown }).reason),
+  };
+}
+
+function readStoredReason(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim().slice(0, 3000);
+  return text || null;
 }
 
 function readSnapshot(value: unknown): PickSnapshot | null {

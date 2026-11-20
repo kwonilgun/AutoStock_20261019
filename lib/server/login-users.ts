@@ -7,6 +7,8 @@ export type LoginUserRow = {
   approved: boolean;
   pickEngine: PickEngine;
   pickEnabled: boolean;
+  pickLimit: number;
+  pickUsed: number;
   createdAt: Date;
   lastLoginAt: Date | null;
   online: boolean;
@@ -42,6 +44,8 @@ export async function listLoginUsers(): Promise<LoginUsers> {
       approved: true,
       pickEngine: true,
       pickEnabled: true,
+      pickLimit: true,
+      pickUsed: true,
       createdAt: true,
       lastLoginAt: true,
       sessions: {
@@ -59,6 +63,8 @@ export async function listLoginUsers(): Promise<LoginUsers> {
     approved: user.approved,
     pickEngine: assignedPickEngine(user.pickEngine),
     pickEnabled: user.pickEnabled,
+    pickLimit: user.pickLimit,
+    pickUsed: user.pickUsed,
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
     online: user.sessions.length > 0,

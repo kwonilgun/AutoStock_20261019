@@ -263,6 +263,29 @@ export async function adminSetUserPickEnabled(userId: string, enabled: boolean):
   }
 }
 
+/** 이 사용자가 Ai-종목추천을 새로 받을 수 있는 횟수. 기본은 1이고, 이미 쓴 횟수는 그대로 둔다. */
+export async function adminSetUserPickLimit(userId: string, limit: number): Promise<AdminResult> {
+  try {
+    await requireAdmin();
+    const id = z.string().min(1).parse(userId);
+    const next = z.number().int().min(0).max(999).parse(limit);
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true, pickUsed: true },
+    });
+    if (!target || target.role !== "user") return { ok: false, message: "사용자를 찾지 못했습니다." };
+    await prisma.user.update({ where: { id: target.id }, data: { pickLimit: next } });
+    revalidatePath("/admin/users");
+    revalidatePath("/picks");
+    return {
+      ok: true,
+      message: `${target.email} Ai-종목추천 횟수를 ${next}회로 바꿨습니다. 지금까지 ${target.pickUsed}회 사용했습니다.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 /** 이 사용자의 추천 종목 모델을 Spark 또는 Claude로 정한다. */
 export async function adminSetUserPickEngine(userId: string, engine: string): Promise<AdminResult> {
   try {

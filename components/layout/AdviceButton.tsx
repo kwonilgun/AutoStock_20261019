@@ -67,11 +67,11 @@ export function PickButton({ enabled }: { enabled: boolean }) {
     <>
       {enabled ? (
         <Link href={active ? returnTo : "/picks"} aria-current={active ? "page" : undefined} className={className}>
-          추천종목
+          Ai-종목추천
         </Link>
       ) : (
         <button type="button" onClick={() => setNoticeOpen(true)} className={className}>
-          추천종목
+          Ai-종목추천
         </button>
       )}
       <dialog
@@ -81,7 +81,7 @@ export function PickButton({ enabled }: { enabled: boolean }) {
         onClose={() => setNoticeOpen(false)}
       >
         <h2 id="pick-disabled-title" className="text-[17px] font-bold text-[#191f28]">
-          추천종목
+          Ai-종목추천
         </h2>
         <p className="mt-2 text-[14px] leading-6 text-[#4e5968]">{PICK_DISABLED_MESSAGE}</p>
         <p className="mt-12 text-[14px] leading-6 text-[#4e5968]">

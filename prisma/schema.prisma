@@ -27,6 +27,10 @@ model User {
   pickEngine   String      @default("spark")
   /// 추천종목 버튼. 꺼져 있으면 실행하지 않는다. 새 회원은 꺼짐.
   pickEnabled  Boolean     @default(false)
+  /// Ai-종목추천을 새로 받을 수 있는 횟수. 저장본을 다시 보는 것은 세지 않는다. 기본은 1이다.
+  pickLimit    Int         @default(1)
+  /// 이미 새로 받은 횟수.
+  pickUsed     Int         @default(0)
   portfolios   Portfolio[]
   sessions     Session[]
   llmKeys      UserLlmKey[]
@@ -59,7 +63,7 @@ model PickCache {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// snapshot과 items를 담은 JSON
+  /// snapshot, items, reason을 담은 JSON. reason은 다시 받기로 지운다.
   body      String
   updatedAt DateTime @updatedAt
 }

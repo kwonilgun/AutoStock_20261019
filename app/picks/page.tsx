@@ -2,12 +2,12 @@ import { ViewFrame } from "@/components/frame/ViewFrame";
 import { PickPanel } from "@/components/recommend/PickPanel";
 import { PICK_DISABLED_MESSAGE } from "@/lib/pick-engine";
 import { loadSavedPick } from "@/lib/server/pick-cache";
+import { readPickQuota } from "@/lib/server/pick-quota";
 import { getCurrentUser } from "@/lib/server/session";
 
 export default async function PicksPage() {
   const user = await getCurrentUser();
-  const enabled = Boolean(user && user.role === "user" && user.pickEnabled);
-  if (!enabled) {
+  if (!user || user.role !== "user" || !user.pickEnabled) {
     return (
       <ViewFrame>
         {() => (
@@ -18,6 +18,6 @@ export default async function PicksPage() {
       </ViewFrame>
     );
   }
-  const saved = await loadSavedPick();
-  return <ViewFrame>{() => <PickPanel initial={saved} />}</ViewFrame>;
+  const [saved, quota] = await Promise.all([loadSavedPick(), readPickQuota(user.id)]);
+  return <ViewFrame>{() => <PickPanel initial={saved} quota={quota} />}</ViewFrame>;
 }

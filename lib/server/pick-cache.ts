@@ -28,6 +28,18 @@ export async function clearPickCache(userId: string): Promise<void> {
   await prisma.pickCache.deleteMany({ where: { userId } });
 }
 
+/** 종목 목록은 두고 추천 이유만 지운다. 다시 받기를 누른 직후에 쓴다. */
+export async function clearPickReason(userId: string): Promise<void> {
+  const row = await prisma.pickCache.findUnique({ where: { userId } });
+  if (!row) return;
+  const stored = parseStoredPick(row.body);
+  if (!stored?.reason) return;
+  await prisma.pickCache.update({
+    where: { userId },
+    data: { body: serializeStoredPick({ snapshot: stored.snapshot, items: stored.items, engine: stored.engine }) },
+  });
+}
+
 /** 화면을 열 때 보여줄 저장본. 관리자가 지정한 모델의 저장본만 돌려준다. */
 export async function loadSavedPick(): Promise<SavedPick | null> {
   try {

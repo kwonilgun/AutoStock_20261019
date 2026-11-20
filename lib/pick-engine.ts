@@ -1,5 +1,9 @@
 export const PICK_DISABLED_MESSAGE = "이 기능을 사용을 원하면 관리자에게 요청하세요";
 
+export const PICK_LIMIT_MESSAGE = "추천 횟수를 모두 사용했습니다. 더 받으려면 관리자에게 요청해 주세요.";
+
+export type PickQuota = { limit: number; used: number };
+
 export const PICK_ENGINES = ["spark", "claude"] as const;
 
 export type PickEngine = (typeof PICK_ENGINES)[number];

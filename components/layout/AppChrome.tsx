@@ -45,7 +45,7 @@ export function AppChrome({ pickEnabled, children }: { pickEnabled: boolean; chi
       </header>
       <main className="mx-auto w-full max-w-lg px-4 pt-1 pb-4">{children}</main>
       <footer className="mx-auto max-w-lg px-5 pb-[calc(5.75rem+env(safe-area-inset-bottom))] text-[12px] leading-5 text-[#8b95a1]">
-        국면과 목표 비중은 관리자가 지정합니다. 매매 결정은 직접 확인한 뒤 진행해 주세요.
+         매매 결정은 본인이 직접 확인한 뒤 증권사 앱에서 진행해 주세요.
       </footer>
       <LiveMarksTicker />
       <Nav />
