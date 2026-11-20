@@ -84,6 +84,9 @@ export function PickButton({ enabled }: { enabled: boolean }) {
           추천종목
         </h2>
         <p className="mt-2 text-[14px] leading-6 text-[#4e5968]">{PICK_DISABLED_MESSAGE}</p>
+        <p className="mt-12 text-[14px] leading-6 text-[#4e5968]">
+          이 기능은 인공지능 LLM 모델이 회원님 포트폴리오의 괴리 데이터를 바탕으로 분석해, 최적의 종목을 추천합니다.
+        </p>
         <button
           type="button"
           onClick={() => setNoticeOpen(false)}
