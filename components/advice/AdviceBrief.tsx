@@ -21,7 +21,7 @@ export function AdviceBrief({ brief }: { brief: AdviceBriefView }) {
       {brief.notice ? (
         <p className="rounded-[22px] bg-white px-5 py-4 text-[13px] leading-5 text-[#4e5968]">{brief.notice}</p>
       ) : null}
-      {SECTIONS.map((section) => (
+      {SECTIONS.filter((section) => brief[section.key].trim()).map((section) => (
         <section key={section.key} className="rounded-[22px] bg-white px-5 py-5">
           <h2 className="text-[17px] font-bold text-[#191f28]">{section.title}</h2>
           <p className="mt-2 text-[15px] leading-6 text-[#4e5968]">{brief[section.key]}</p>

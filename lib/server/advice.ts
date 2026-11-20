@@ -1,6 +1,5 @@
 import { z } from "zod";
 import type { AdviceEngine } from "@/lib/advice-model";
-import { adviceTextProblem } from "@/lib/engine/advice-check";
 import { adviceContext, type AdviceContext, type AdviceSource } from "@/lib/engine/advice-context";
 import { draftAdvice, type AdviceSections } from "@/lib/engine/advice-draft";
 import { PHASE_STORY } from "@/lib/engine/phase-story";
@@ -20,10 +19,10 @@ export type AdviceBrief = AdviceSections & {
 };
 
 const AdviceJson = z.object({
-  phase: z.string().trim().min(1).max(1200),
-  portfolio: z.string().trim().min(1).max(1200),
-  actions: z.string().trim().min(1).max(1200),
-  leave: z.string().trim().min(1).max(1200),
+  phase: z.string(),
+  portfolio: z.string(),
+  actions: z.string(),
+  leave: z.string(),
 });
 
 export function adviceSourceFromView(
@@ -68,54 +67,38 @@ export async function loadAdvice(source: AdviceSource, options?: { refresh?: boo
   };
 }
 
-type AttemptFail = "transport" | "shape" | "mismatch";
-
-/** 브라우저가 Claude 본문을 가져온 뒤의 검사. 키가 서버를 거치지 않는다. */
+/** 브라우저가 Claude 본문을 가져온 뒤 그대로 저장한다. 키가 서버를 거치지 않는다. */
 export async function adviceFromClaudeReply(context: AdviceContext, raw: string | null): Promise<AdviceBrief> {
-  if (raw && raw.trim()) {
-    const read = readAdviceJson(raw, context);
-    if ("sections" in read) {
-      return { ...read.sections, source: "anthropic", notice: null, cachedAt: null };
-    }
-    return claudeDraft(context, read.fail);
-  }
-  return claudeDraft(context, "transport");
+  const text = raw?.trim() ?? "";
+  if (!text) return claudeDraft(context);
+  return { ...claudeSections(text), source: "anthropic", notice: null, cachedAt: null };
 }
 
-function claudeDraft(context: AdviceContext, fail: AttemptFail): AdviceBrief {
-  const notice =
-    fail === "shape"
-      ? "Claude 응답 형식이 달라 앱 계산 초안을 보여 줍니다."
-      : fail === "mismatch"
-        ? "Claude 응답이 엔진 숫자와 달라 앱 계산 초안을 보여 줍니다."
-        : "Claude로 받지 못해 앱 계산으로 만든 초안입니다.";
-  return { ...draftAdvice(context), source: "draft", notice, cachedAt: null };
+function claudeDraft(context: AdviceContext): AdviceBrief {
+  return {
+    ...draftAdvice(context),
+    source: "draft",
+    notice: "Claude로 받지 못해 앱 계산으로 만든 초안입니다.",
+    cachedAt: null,
+  };
 }
 
-function readAdviceJson(raw: string, context: AdviceContext): { sections: AdviceSections } | { fail: AttemptFail } {
-  let parsedBody: unknown;
+/** 네 칸 JSON이면 그 문장을, 아니면 받은 원문을 그대로 돌려준다. 엔진 숫자와 달라도 바꾸지 않는다. */
+function claudeSections(raw: string): AdviceSections {
   try {
-    parsedBody = parseAdviceJson(raw);
+    const parsed = AdviceJson.safeParse(parseAdviceJson(raw));
+    if (parsed.success) {
+      return {
+        phase: parsed.data.phase.trim(),
+        portfolio: parsed.data.portfolio.trim(),
+        actions: parsed.data.actions.trim(),
+        leave: parsed.data.leave.trim(),
+      };
+    }
   } catch {
-    adviceLog("reject", { reason: "json-parse" });
-    return { fail: "shape" };
+    // 받은 원문을 그대로 둔다.
   }
-  const parsed = AdviceJson.safeParse(parsedBody);
-  if (!parsed.success) {
-    adviceLog("reject", { reason: "json-shape", issues: parsed.error.issues });
-    return { fail: "shape" };
-  }
-  const problem = adviceTextProblem(parsed.data, context);
-  if (problem) {
-    adviceLog("reject", { reason: "engine-mismatch", problem });
-    return { fail: "mismatch" };
-  }
-  return { sections: parsed.data };
-}
-
-function adviceLog(label: string, data: unknown): void {
-  const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
-  console.log(`[advice] ${label}\n${text}`);
+  return { phase: raw.trim(), portfolio: "", actions: "", leave: "" };
 }
 
 function parseAdviceJson(raw: string): unknown {
