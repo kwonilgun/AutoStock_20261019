@@ -4,17 +4,15 @@ import { adviceContext, type AdviceContext, type AdviceSource } from "@/lib/engi
 import { draftAdvice, type AdviceSections } from "@/lib/engine/advice-draft";
 import { PHASE_STORY } from "@/lib/engine/phase-story";
 import { readAdviceCache } from "@/lib/server/advice-cache";
-import { hasBrowserClaudeCookie } from "@/lib/server/advice-choice";
 import type { AppView } from "@/lib/server/portfolio";
 import { getCurrentUser } from "@/lib/server/session";
 
 export type AdviceBrief = AdviceSections & {
-  /** spark는 NVIDIA Spark. draft는 엔진 초안. 나머지는 그 회원의 API 키. */
+  /** spark는 NVIDIA Spark. draft는 엔진 초안. anthropic은 관리자 Claude 키. */
   source: AdviceEngine | "draft";
   notice: string | null;
   /** 저장된 글을 보여 줄 때의 시각. 방금 모델이 쓴 글도 저장 시각이 있다. */
   cachedAt: string | null;
-  /** 브라우저 Claude 키가 있고 저장된 글이 없을 때. 화면이 그 키로 이어서 받는다. */
   awaitingBrowser?: boolean;
 };
 
@@ -52,17 +50,14 @@ export async function loadAdvice(source: AdviceSource, options?: { refresh?: boo
   const context = adviceContext(source);
   const user = await getCurrentUser();
   const member = user && user.role !== "admin" ? user : null;
-  if (member && (await hasBrowserClaudeCookie())) {
-    if (!options?.refresh) {
-      const cached = await readAdviceCache(member.id, "anthropic");
-      if (cached) return cached;
-    }
-    return { ...draftAdvice(context), source: "draft", notice: null, cachedAt: null, awaitingBrowser: true };
+  if (member && !options?.refresh) {
+    const cached = await readAdviceCache(member.id, "anthropic");
+    if (cached) return cached;
   }
   return {
     ...draftAdvice(context),
     source: "draft",
-    notice: "오늘 자문은 Claude로만 받습니다. Claude API 키와 워크스페이스 ID를 입력해 주세요.",
+    notice: null,
     cachedAt: null,
   };
 }

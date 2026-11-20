@@ -15,6 +15,7 @@ export type SessionUser = {
   role: "user" | "admin";
   mustChangePassword: boolean;
   investorStyle: InvestorStyle;
+  pickEnabled: boolean;
 };
 
 function hashToken(token: string) {
@@ -76,5 +77,6 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     role: session.user.role === "admin" ? "admin" : "user",
     mustChangePassword: session.user.mustChangePassword,
     investorStyle: investorStyleOf(session.user.investorStyle),
+    pickEnabled: session.user.pickEnabled,
   };
 });

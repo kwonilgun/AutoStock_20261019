@@ -13,7 +13,10 @@ import { createAnalysisReport, deleteAnalysisReport, updateAnalysisReport } from
 import { parseWhyNote } from "@/lib/engine/phase-why";
 import { currentWhyNotes, parseOverrides, savePhaseSetting } from "@/lib/server/phase-setting";
 import { getRecommendationSetting, saveRecommendationSetting } from "@/lib/server/recommendation-setting";
+import { PICK_ENGINES } from "@/lib/pick-engine";
 import { hashPassword } from "@/lib/server/password";
+import { readPickClaudeAdmin, savePickClaudeSetting } from "@/lib/server/pick-llm";
+import { SecretBoxError } from "@/lib/server/secret-box";
 import { getCurrentUser } from "@/lib/server/session";
 import { forgetViews } from "@/lib/server/view-cache";
 
@@ -230,6 +233,74 @@ export async function adminResetUserPassword(userId: string): Promise<AdminResul
     revalidatePath("/admin/users");
     return { ok: true, message: `${target.email} 비밀번호를 0000으로 바꿨습니다.` };
   } catch (error) {
+    return fail(error);
+  }
+}
+
+/** 이 사용자의 추천종목 실행을 켜거나 끈다. 기본은 꺼짐이다. */
+export async function adminSetUserPickEnabled(userId: string, enabled: boolean): Promise<AdminResult> {
+  try {
+    await requireAdmin();
+    const id = z.string().min(1).parse(userId);
+    const next = z.boolean().parse(enabled);
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true },
+    });
+    if (!target || target.role !== "user") return { ok: false, message: "사용자를 찾지 못했습니다." };
+    await prisma.user.update({ where: { id: target.id }, data: { pickEnabled: next } });
+    forgetViews(target.id);
+    revalidatePath("/admin/users");
+    revalidatePath("/", "layout");
+    revalidatePath("/portfolio");
+    revalidatePath("/picks");
+    return {
+      ok: true,
+      message: next ? `${target.email} 추천종목을 켰습니다.` : `${target.email} 추천종목을 껐습니다.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** 이 사용자의 추천 종목 모델을 Spark 또는 Claude로 정한다. */
+export async function adminSetUserPickEngine(userId: string, engine: string): Promise<AdminResult> {
+  try {
+    await requireAdmin();
+    const id = z.string().min(1).parse(userId);
+    const next = z.enum(PICK_ENGINES).parse(engine);
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true, role: true },
+    });
+    if (!target || target.role !== "user") return { ok: false, message: "사용자를 찾지 못했습니다." };
+    await prisma.user.update({ where: { id: target.id }, data: { pickEngine: next } });
+    revalidatePath("/admin/users");
+    revalidatePath("/picks");
+    return {
+      ok: true,
+      message: next === "claude" ? `${target.email} 추천 종목을 Claude로 바꿨습니다.` : `${target.email} 추천 종목을 Spark로 바꿨습니다.`,
+    };
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/** 추천 종목 Claude 키와 워크스페이스. 키가 비어 있으면 이미 저장된 키를 유지한다. */
+export async function adminSavePickClaude(apiKey: string, workspaceId: string): Promise<AdminResult> {
+  try {
+    const admin = await requireAdmin();
+    const workspace = workspaceId.trim();
+    if (!workspace) return { ok: false, message: "워크스페이스 ID를 입력해 주세요." };
+    if (workspace.length > 120 || /\s/.test(workspace)) return { ok: false, message: "워크스페이스 ID를 확인해 주세요." };
+    const key = z.string().trim().max(400).parse(apiKey);
+    const current = await readPickClaudeAdmin();
+    if (!key && !current.configured) return { ok: false, message: "Claude API 키를 입력해 주세요." };
+    await savePickClaudeSetting({ apiKey: key, workspaceId: workspace, updatedBy: admin.id });
+    revalidatePath("/admin/users");
+    return { ok: true, message: "Claude 키를 저장했습니다. 호출 비용은 이 키로 청구됩니다." };
+  } catch (error) {
+    if (error instanceof SecretBoxError) return { ok: false, message: "서버에 키 암호화 설정이 없습니다." };
     return fail(error);
   }
 }

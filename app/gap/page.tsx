@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ViewFrame } from "@/components/frame/ViewFrame";
 import { GapFolders, type GapFolder } from "@/components/gap/GapFolders";
 import { SeoulClock } from "@/components/home/SeoulClock";
@@ -82,13 +81,6 @@ export default function GapPage() {
               </p>
               <p className="mt-1 text-[13px] text-[#8b95a1]">{view.phase} 국면 기준</p>
               {message ? <p className="mt-3 text-[13px] font-medium text-[#f04452]">{message}</p> : null}
-              <Link href="/advice" className="mt-4 flex items-center justify-between gap-3 border-t border-[#f2f4f6] pt-4">
-                <span>
-                  <span className="block text-[15px] font-bold text-[#191f28]">이 괴리로 설명 듣기</span>
-                  <span className="mt-1 block text-[13px] text-[#8b95a1]">국면과 괴리 숫자로 오늘 자문을 봅니다</span>
-                </span>
-                <Chevron />
-              </Link>
             </section>
 
             <GapFolders groups={groups} />
@@ -96,13 +88,5 @@ export default function GapPage() {
         );
       }}
     </ViewFrame>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0 text-[#b0b8c1]">
-      <path d="M9 6.5 15.5 12 9 17.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

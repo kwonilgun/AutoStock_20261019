@@ -23,10 +23,15 @@ model User {
   lastLoginAt  DateTime?
   /// 관리자 승인. 꺼져 있으면 가입은 되어 있어도 로그인할 수 없다. 새 회원은 꺼짐.
   approved     Boolean     @default(false)
+  /// 추천 종목 모델. spark 또는 claude. 관리자가 사용자마다 정하고, Claude 비용은 관리자 키로 낸다.
+  pickEngine   String      @default("spark")
+  /// 추천종목 버튼. 꺼져 있으면 실행하지 않는다. 새 회원은 꺼짐.
+  pickEnabled  Boolean     @default(false)
   portfolios   Portfolio[]
   sessions     Session[]
   llmKeys      UserLlmKey[]
   adviceCaches AdviceCache[]
+  pickCache    PickCache?
   createdAt    DateTime    @default(now())
 }
 
@@ -47,6 +52,26 @@ model AdviceCache {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, engine])
+}
+
+/// 회원이 마지막으로 받은 추천 종목. 다시 받기를 누르기 전에는 지정된 모델을 다시 부르지 않는다.
+model PickCache {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// snapshot과 items를 담은 JSON
+  body      String
+  updatedAt DateTime @updatedAt
+}
+
+/// 추천 종목 Claude. 관리자가 키와 워크스페이스를 넣고, Claude로 지정된 사용자가 같이 쓴다. 행은 id "global" 하나뿐이다.
+model PickClaudeSetting {
+  id          String   @id @default("global")
+  cipher      String   @default("")
+  last4       String   @default("")
+  workspaceId String   @default("")
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
 }
 
 /// 회원이 직접 넣은 상용 모델 키. 평문은 저장하지 않는다.

@@ -5,17 +5,11 @@ import { INCOME_KIND_LABEL, INCOME_KINDS, type IncomeKind } from "@/lib/engine/h
 import type { Currency } from "@/lib/engine/types";
 import type { HoldingImageType } from "@/lib/holdings-import";
 import { incomeImportKey, isImportedIncomeDate, type ImportedIncome } from "@/lib/income-import";
-import { extractIncomeImage, reportIncomeImport } from "@/lib/income-paste";
+import { reportIncomeImport } from "@/lib/income-paste";
 import { prepareHoldingImage } from "@/lib/holdings-paste";
 import { formatGroupedInput } from "@/lib/format";
 import { addReturnIncome } from "@/lib/server/actions";
-import {
-  forgetBrowserClaude,
-  forgetBrowserClaudeWorkspace,
-  readBrowserClaudeCredential,
-  rememberBrowserClaude,
-  rememberBrowserClaudeWorkspace,
-} from "@/lib/claude-browser-key";
+import { readIncomeImage } from "@/lib/server/image-claude";
 
 const IMAGE_TOO_LARGE = "이미지가 너무 큽니다. 수익 내역만 보이게 잘라 주세요.";
 
@@ -75,11 +69,6 @@ export function AutoIncome({
   onSaved: (message: string) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [ready, setReady] = useState(false);
-  const [hasKey, setHasKey] = useState(false);
-  const [storedWorkspace, setStoredWorkspace] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [workspaceId, setWorkspaceId] = useState("");
   const [shot, setShot] = useState<Shot | null>(null);
   const shotRef = useRef<Shot | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -94,14 +83,6 @@ export function AutoIncome({
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const stored = readBrowserClaudeCredential();
-    setHasKey(Boolean(stored));
-    setStoredWorkspace(stored?.workspaceId ?? "");
-    setReady(true);
-  }, [open]);
-
   function replaceShot(next: Shot | null) {
     if (shotRef.current?.preview) URL.revokeObjectURL(shotRef.current.preview);
     shotRef.current = next;
@@ -109,32 +90,12 @@ export function AutoIncome({
   }
 
   function close() {
-    setApiKey("");
-    setWorkspaceId("");
     replaceShot(null);
     setRows(null);
     setError(null);
     setBusy(null);
     setReplace(false);
-    setReady(false);
     onClose();
-  }
-
-  function clearKey() {
-    forgetBrowserClaude();
-    setHasKey(false);
-    setStoredWorkspace("");
-    setApiKey("");
-    setWorkspaceId("");
-    setRows(null);
-    setError(null);
-  }
-
-  function clearWorkspace() {
-    forgetBrowserClaudeWorkspace();
-    setStoredWorkspace("");
-    setWorkspaceId("");
-    setError(null);
   }
 
   function updateRow(index: number, patch: Partial<PreviewRow>) {
@@ -168,14 +129,6 @@ export function AutoIncome({
 
   async function runImport() {
     setError(null);
-    const key = hasKey ? (readBrowserClaudeCredential()?.apiKey ?? "") : apiKey.trim();
-    const workspace = workspaceId.trim() || storedWorkspace;
-    if (!key) {
-      const message = "Claude API 키를 입력해 주세요.";
-      reportIncomeImport({ step: "key", ok: false, message });
-      setError(message);
-      return;
-    }
     if (!shot) {
       const message = "수익 화면 이미지를 넣어 주세요.";
       reportIncomeImport({ step: "image", ok: false, message });
@@ -183,19 +136,11 @@ export function AutoIncome({
       return;
     }
     try {
-      rememberBrowserClaude(key, workspaceId.trim() || undefined);
-      setHasKey(true);
-      setApiKey("");
-      setWorkspaceId("");
       setBusy("캡처 이미지에서 배당, 이자, 판매 수익을 읽는 중");
-      const result = await extractIncomeImage(key, workspace, shot);
+      const result = await readIncomeImage({ mediaType: shot.mediaType, data: shot.data });
       if (!result.ok) {
         setError(result.message);
         return;
-      }
-      if (result.workspaceId) {
-        rememberBrowserClaudeWorkspace(result.workspaceId);
-        setStoredWorkspace(result.workspaceId);
       }
       setRows(previewRows(result.incomes, existing));
     } catch (cause) {
@@ -284,10 +229,10 @@ export function AutoIncome({
         </button>
       </div>
       <p className="mt-2 text-[13px] leading-5 text-[#4e5968]">
-        증권사 배당, 이자, 판매 수익 화면을 캡처해 아래에 붙여 넣거나 파일을 고릅니다. 수익 내역만 보이게 잘라 주세요. 종류, 날짜, 금액, 종목명을 읽으려고 그 이미지를 Anthropic API로 보냅니다. 판매 수익은 판 금액이 아니라 번 금액입니다. 계좌번호와 예금주가 보이면 그 화면도 함께 전송됩니다. API 키는 이 브라우저에만 두고, 에그발란스 서버에는 저장하지 않습니다. 키가 있으면 오늘 자문도 이 키의 Claude로 받습니다. 호출 비용은 키 소유자에게 청구됩니다.
+        증권사 배당, 이자, 판매 수익 화면을 캡처해 아래에 붙여 넣거나 파일을 고릅니다. 수익 내역만 보이게 잘라 주세요. 종류, 날짜, 금액, 종목명을 읽습니다. 판매 수익은 판 금액이 아니라 번 금액입니다. 계좌번호와 예금주가 보이면 그 화면도 함께 전송됩니다.
       </p>
 
-      {ready && !rows ? (
+      {!rows ? (
         <div className="mt-4">
           <div className="grid gap-1.5">
             <span className="text-[13px] font-medium text-[#8b95a1]">수익 화면 이미지</span>
@@ -317,60 +262,13 @@ export function AutoIncome({
               </label>
             )}
           </div>
-          {hasKey ? (
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[14px] font-semibold text-[#191f28]">이 브라우저에 Claude 키가 있습니다.</p>
-              <button type="button" className="text-[13px] font-semibold text-[#f04452]" onClick={clearKey} disabled={Boolean(busy)}>
-                키 지우기
-              </button>
-            </div>
-          ) : (
-            <label className="mt-3 grid gap-1.5">
-              <span className="text-[13px] font-medium text-[#8b95a1]">Claude API 키</span>
-              <input
-                type="password"
-                autoComplete="off"
-                spellCheck={false}
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder="API 키"
-                className="h-12 w-full rounded-2xl bg-[#f2f4f6] px-4 font-mono text-[14px] text-[#191f28] outline-none ring-[#3182f6] focus:ring-2"
-              />
-            </label>
-          )}
-          {storedWorkspace ? (
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <p className="text-[14px] font-semibold text-[#191f28]">이 브라우저에 워크스페이스가 있습니다.</p>
-              <button type="button" className="shrink-0 text-[13px] font-semibold text-[#f04452]" onClick={clearWorkspace} disabled={Boolean(busy)}>
-                워크스페이스 지우기
-              </button>
-            </div>
-          ) : (
-            <>
-              <label className="mt-3 grid gap-1.5">
-                <span className="text-[13px] font-medium text-[#8b95a1]">워크스페이스 ID</span>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={workspaceId}
-                  onChange={(event) => setWorkspaceId(event.target.value)}
-                  placeholder="워크스페이스 ID"
-                  className="h-12 w-full rounded-2xl bg-[#f2f4f6] px-4 font-mono text-[14px] text-[#191f28] outline-none ring-[#3182f6] focus:ring-2"
-                />
-              </label>
-              <p className="mt-1.5 text-[12px] leading-5 text-[#8b95a1]">
-                이 키는 워크스페이스 ID가 필요합니다. platform.claude.com/settings/workspaces 의 ID 열을 넣습니다.
-              </p>
-            </>
-          )}
           <button
             type="button"
-            disabled={Boolean(busy) || !shot || (!hasKey && apiKey.trim().length === 0)}
+            disabled={Boolean(busy) || !shot}
             onClick={runImport}
             className="mt-3 h-12 w-full rounded-2xl bg-[#3182f6] text-[15px] font-bold text-white disabled:opacity-60"
           >
-            {busy || (hasKey ? "가져오기" : "키 저장 후 가져오기")}
+            {busy || "가져오기"}
           </button>
         </div>
       ) : null}

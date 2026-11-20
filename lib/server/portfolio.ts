@@ -208,13 +208,13 @@ export const getView = cache(async (): Promise<AppView> => {
   if (user.role === "admin") redirect(user.mustChangePassword ? "/admin/password" : "/admin");
   const setting = await getPhaseSetting();
   const cached = readView<AppView>(user.id);
-  if (cachedViewApplies(cached, setting.phase)) return cached;
+  if (cachedViewApplies(cached, setting.phase)) return { ...cached, user };
   return shareViewLoad(user.id, () => buildView(user, setting));
 });
 
 async function buildView(user: SessionUser, setting: PhaseSettingView, attempt = 0): Promise<AppView> {
   const cached = readView<AppView>(user.id);
-  if (cachedViewApplies(cached, setting.phase)) return cached;
+  if (cachedViewApplies(cached, setting.phase)) return { ...cached, user };
   const gen = viewGeneration(user.id);
   const portfolio = await hydratePrices(await hydrateFx(await ensurePortfolio(user.id)));
   const phase = setting.phase;

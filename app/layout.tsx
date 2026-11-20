@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { AppChrome } from "@/components/layout/AppChrome";
 import { SplashScreen } from "@/components/layout/SplashScreen";
-import { loadAdviceChrome } from "@/lib/server/advice-choice";
+import { getCurrentUser } from "@/lib/server/session";
 import "./globals.css";
 
 export const dynamic = "force-dynamic";
@@ -55,7 +55,9 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const advice = await loadAdviceChrome();
+  const user = await getCurrentUser();
+  const pickEnabled = Boolean(user && user.role === "user" && user.pickEnabled);
+
   return (
     <html lang="ko" style={{ background: "#f2f4f6" }}>
       <body style={{ background: "#f2f4f6", margin: 0 }}>
@@ -65,7 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </Script>
         ) : null}
         <SplashScreen />
-        <AppChrome advice={advice}>{children}</AppChrome>
+        <AppChrome pickEnabled={pickEnabled}>{children}</AppChrome>
       </body>
     </html>
   );

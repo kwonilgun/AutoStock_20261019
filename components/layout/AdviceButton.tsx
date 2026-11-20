@@ -1,24 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type MouseEvent } from "react";
-import { ClaudeCredentialDialog } from "@/components/claude/ClaudeCredentialDialog";
-import { browserClaudeReady } from "@/lib/claude-browser-key";
+import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { PICK_DISABLED_MESSAGE } from "@/lib/pick-engine";
 
 const RETURN_KEY = "advice-return";
+const SHELL_PAGES = new Set(["/picks"]);
 
 function appPath(path: string | null): string | null {
-  if (!path || !path.startsWith("/") || path.startsWith("//") || path === "/advice") return null;
+  if (!path || !path.startsWith("/") || path.startsWith("//") || SHELL_PAGES.has(path)) return null;
   return path;
 }
 
-function useAdviceReturn() {
+function useShellReturn() {
   const pathname = usePathname();
   const [returnTo, setReturnTo] = useState("/");
 
   useEffect(() => {
-    if (pathname === "/advice") {
+    if (SHELL_PAGES.has(pathname)) {
       const saved = appPath(sessionStorage.getItem(RETURN_KEY));
       if (saved) setReturnTo(saved);
       return;
@@ -27,11 +27,11 @@ function useAdviceReturn() {
     setReturnTo(pathname);
   }, [pathname]);
 
-  return { active: pathname === "/advice", returnTo };
+  return { pathname, returnTo };
 }
 
 export function AdviceBackButton() {
-  const { returnTo } = useAdviceReturn();
+  const { returnTo } = useShellReturn();
 
   return (
     <Link
@@ -46,37 +46,52 @@ export function AdviceBackButton() {
   );
 }
 
-export function AdviceButton() {
-  const router = useRouter();
-  const { active, returnTo } = useAdviceReturn();
-  const [credentialOpen, setCredentialOpen] = useState(false);
+export function PickButton({ enabled }: { enabled: boolean }) {
+  const { pathname, returnTo } = useShellReturn();
+  const active = enabled && pathname === "/picks";
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
-  function onAdviceClick(event: MouseEvent<HTMLAnchorElement>) {
-    if (active || browserClaudeReady()) return;
-    event.preventDefault();
-    setCredentialOpen(true);
-  }
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (noticeOpen && !dialog.open) dialog.showModal();
+    if (!noticeOpen && dialog.open) dialog.close();
+  }, [noticeOpen]);
+
+  const className = `flex h-10 shrink-0 items-center rounded-full px-4 text-[13px] font-bold text-white shadow-[0_2px_8px_rgba(49,130,246,0.35)] ${
+    active ? "bg-[#1b64da]" : "bg-[#3182f6]"
+  }`;
 
   return (
     <>
-      <Link
-        href={active ? returnTo : "/advice"}
-        aria-current={active ? "page" : undefined}
-        onClick={onAdviceClick}
-        className={`flex h-10 shrink-0 items-center rounded-full px-3.5 text-[13px] font-semibold ${
-          active ? "bg-[#3182f6] text-white" : "bg-white text-[#4e5968]"
-        }`}
+      {enabled ? (
+        <Link href={active ? returnTo : "/picks"} aria-current={active ? "page" : undefined} className={className}>
+          추천종목
+        </Link>
+      ) : (
+        <button type="button" onClick={() => setNoticeOpen(true)} className={className}>
+          추천종목
+        </button>
+      )}
+      <dialog
+        ref={dialogRef}
+        aria-labelledby="pick-disabled-title"
+        className="fixed inset-auto top-1/2 left-1/2 m-0 w-[min(100%-2rem,22rem)] -translate-x-1/2 -translate-y-1/2 rounded-[22px] border-0 bg-white p-5 text-[#191f28] shadow-[0_16px_48px_rgba(25,31,40,0.18)] backdrop:bg-[#191f28]/40"
+        onClose={() => setNoticeOpen(false)}
       >
-        오늘 자문
-      </Link>
-      <ClaudeCredentialDialog
-        open={credentialOpen}
-        onClose={() => setCredentialOpen(false)}
-        onSaved={() => {
-          setCredentialOpen(false);
-          router.push("/advice");
-        }}
-      />
+        <h2 id="pick-disabled-title" className="text-[17px] font-bold text-[#191f28]">
+          추천종목
+        </h2>
+        <p className="mt-2 text-[14px] leading-6 text-[#4e5968]">{PICK_DISABLED_MESSAGE}</p>
+        <button
+          type="button"
+          onClick={() => setNoticeOpen(false)}
+          className="mt-4 h-11 w-full rounded-2xl bg-[#3182f6] text-[15px] font-bold text-white"
+        >
+          확인
+        </button>
+      </dialog>
     </>
   );
 }

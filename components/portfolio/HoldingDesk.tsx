@@ -11,10 +11,9 @@ import { formatNumber, formatReturn, formatUsd } from "@/lib/format";
 import type { RecommendAddSeed } from "@/lib/recommendations";
 import type { SecurityMatch } from "@/lib/quotes/parse";
 import { isPlainCashTicker } from "@/lib/quotes/symbol";
+import { PICK_DISABLED_MESSAGE } from "@/lib/pick-engine";
 import { deleteHolding, saveHolding, suggestSecurities } from "@/lib/server/actions";
-import { ClaudeCredentialDialog } from "@/components/claude/ClaudeCredentialDialog";
 import { BraveImport } from "@/components/portfolio/BraveImport";
-import { browserClaudeReady } from "@/lib/claude-browser-key";
 
 type Draft = {
   ticker: string;
@@ -842,11 +841,13 @@ export function HoldingDesk({
   fx,
   quantityEvents = [],
   seed = null,
+  pickEnabled = false,
 }: {
   holdings: HoldingInput[];
   fx: number;
   quantityEvents?: QuantityEvent[];
   seed?: RecommendAddSeed | null;
+  pickEnabled?: boolean;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -855,7 +856,8 @@ export function HoldingDesk({
   const wasEmpty = useRef(source.length === 0);
   const [adding, setAdding] = useState(source.length === 0);
   const [braveOpen, setBraveOpen] = useState(false);
-  const [credentialOpen, setCredentialOpen] = useState(false);
+  const [autoNoticeOpen, setAutoNoticeOpen] = useState(false);
+  const autoNoticeRef = useRef<HTMLDialogElement>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [addNotice, setAddNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -878,6 +880,13 @@ export function HoldingDesk({
     [source, removedIds],
   );
   const guide = holdings.length === 0;
+
+  useEffect(() => {
+    const dialog = autoNoticeRef.current;
+    if (!dialog) return;
+    if (autoNoticeOpen && !dialog.open) dialog.showModal();
+    if (!autoNoticeOpen && dialog.open) dialog.close();
+  }, [autoNoticeOpen]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -1236,8 +1245,11 @@ export function HoldingDesk({
             <button
               type="button"
               onClick={() => {
-                if (browserClaudeReady()) setBraveOpen(true);
-                else setCredentialOpen(true);
+                if (!pickEnabled) {
+                  setAutoNoticeOpen(true);
+                  return;
+                }
+                setBraveOpen(true);
               }}
               className="h-8 rounded-xl bg-[#f2f4f6] px-3 text-[13px] font-bold text-[#191f28]"
             >
@@ -1279,14 +1291,24 @@ export function HoldingDesk({
         ) : null}
       </section>
 
-      <ClaudeCredentialDialog
-        open={credentialOpen}
-        onClose={() => setCredentialOpen(false)}
-        onSaved={() => {
-          setCredentialOpen(false);
-          setBraveOpen(true);
-        }}
-      />
+      <dialog
+        ref={autoNoticeRef}
+        aria-labelledby="holding-auto-disabled-title"
+        className="fixed inset-auto top-1/2 left-1/2 m-0 w-[min(100%-2rem,22rem)] -translate-x-1/2 -translate-y-1/2 rounded-[22px] border-0 bg-white p-5 text-[#191f28] shadow-[0_16px_48px_rgba(25,31,40,0.18)] backdrop:bg-[#191f28]/40"
+        onClose={() => setAutoNoticeOpen(false)}
+      >
+        <h2 id="holding-auto-disabled-title" className="text-[17px] font-bold text-[#191f28]">
+          자동
+        </h2>
+        <p className="mt-2 text-[14px] leading-6 text-[#4e5968]">{PICK_DISABLED_MESSAGE}</p>
+        <button
+          type="button"
+          onClick={() => setAutoNoticeOpen(false)}
+          className="mt-4 h-11 w-full rounded-2xl bg-[#3182f6] text-[15px] font-bold text-white"
+        >
+          확인
+        </button>
+      </dialog>
 
       <BraveImport
         open={braveOpen}

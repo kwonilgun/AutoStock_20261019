@@ -165,6 +165,7 @@ export default async function PortfolioPage({
               fx={view.portfolio.usdKrw}
               quantityEvents={view.quantityEvents}
               seed={seed}
+              pickEnabled={view.user.role === "user" && view.user.pickEnabled}
             />
           </div>
         );

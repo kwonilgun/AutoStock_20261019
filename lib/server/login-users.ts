@@ -1,9 +1,12 @@
 import { prisma } from "@/lib/db";
+import { assignedPickEngine, type PickEngine } from "@/lib/pick-engine";
 
 export type LoginUserRow = {
   id: string;
   email: string;
   approved: boolean;
+  pickEngine: PickEngine;
+  pickEnabled: boolean;
   createdAt: Date;
   lastLoginAt: Date | null;
   online: boolean;
@@ -37,6 +40,8 @@ export async function listLoginUsers(): Promise<LoginUsers> {
       id: true,
       email: true,
       approved: true,
+      pickEngine: true,
+      pickEnabled: true,
       createdAt: true,
       lastLoginAt: true,
       sessions: {
@@ -52,6 +57,8 @@ export async function listLoginUsers(): Promise<LoginUsers> {
     id: user.id,
     email: user.email,
     approved: user.approved,
+    pickEngine: assignedPickEngine(user.pickEngine),
+    pickEnabled: user.pickEnabled,
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
     online: user.sessions.length > 0,

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { LlmKeySettings } from "@/components/settings/LlmKeySettings";
 import { DeleteAccountRow } from "@/components/settings/DeleteAccountForm";
 import { PasswordSettingRow } from "@/components/settings/SettingsPasswordForm";
 
@@ -10,8 +9,6 @@ export function AccountSettings({ email }: { email: string }) {
         <p className="text-[13px] font-medium text-[#8b95a1]">로그인 계정</p>
         <p className="mt-1 truncate text-[17px] font-bold text-[#191f28]">{email}</p>
       </section>
-
-      <LlmKeySettings />
 
       <section className="divide-y divide-[#f2f4f6] rounded-[22px] bg-white px-5 py-2">
         <Link href="/settings/manual" className="flex w-full items-center justify-between py-3 text-left">

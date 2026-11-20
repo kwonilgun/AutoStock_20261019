@@ -2,9 +2,9 @@
 
 import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import type { HeldPosition, HoldingImageType } from "@/lib/holdings-import";
-import { extractHoldingImage, prepareHoldingImage } from "@/lib/holdings-paste";
+import { prepareHoldingImage } from "@/lib/holdings-paste";
 import { HoldingImportRows, applyRowPatch, matchRows, saveChosenHoldings, type PreviewRow } from "@/components/portfolio/holding-import-shared";
-import { readBrowserClaudeCredential, rememberBrowserClaudeWorkspace } from "@/lib/claude-browser-key";
+import { readHoldingImage } from "@/lib/server/image-claude";
 
 export function BraveImport({
   open,
@@ -65,22 +65,14 @@ export function BraveImport({
 
   async function runImport() {
     setError(null);
-    const stored = readBrowserClaudeCredential();
-    const key = stored?.apiKey ?? "";
-    const workspace = stored?.workspaceId ?? "";
-    if (!key || !workspace) {
-      setError("Claude API 키와 워크스페이스 ID를 먼저 입력해 주세요.");
-      return;
-    }
     if (!shot) {
       setError("보유 화면 이미지를 넣어 주세요.");
       return;
     }
     try {
       setBusy("캡처 이미지에서 종목을 읽는 중");
-      const result = await extractHoldingImage(key, workspace, shot);
+      const result = await readHoldingImage({ mediaType: shot.mediaType, data: shot.data });
       if (!result.ok) throw new Error(result.message);
-      if (result.workspaceId) rememberBrowserClaudeWorkspace(result.workspaceId);
       setBusy("종목 코드와 맞추는 중");
       setRows(await matchRows(result.holdings, held));
     } catch (cause) {
@@ -123,7 +115,7 @@ export function BraveImport({
         </button>
       </div>
       <p className="mt-2 text-[13px] leading-5 text-[#4e5968]">
-        증권사 보유 화면을 캡처해 아래에 붙여 넣거나 파일을 고릅니다. 종목 표에서 종목명, 수량, 1주 평균금액, 현재가를 포함된 이미지를 캡쳐해서 Claude로 보냅니다. 캡쳐화면은 서버에 저장하지 않습니다. Claude API 키는 이 브라우저에만 두고, 에그발란스 서버에는 저장하지 않습니다.
+        증권사 보유 화면을 캡처해 아래에 붙여 넣거나 파일을 고릅니다. 종목 표에서 종목명, 수량, 1주 평균금액, 현재가가 보이게 잘라 주세요. 이미지는 Claude로 읽고, 화면에는 저장하지 않습니다.
       </p>
 
       {!rows ? (

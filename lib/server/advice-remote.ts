@@ -82,6 +82,14 @@ export function sparkChatBody(model: string, systemPrompt: string, input: string
   };
 }
 
+/** 앱 서버의 Spark Qwen. 주소나 모델 이름이 없으면 호출하지 않는다. */
+export function readSparkConfig(): SparkModelConfig | null {
+  const url = process.env.ADVICE_MODEL_URL?.trim().replace(/\/+$/, "") ?? "";
+  const model = process.env.ADVICE_MODEL_NAME?.trim() ?? "";
+  if (!url || !model) return null;
+  return { url, model, key: process.env.ADVICE_MODEL_KEY?.trim() ?? "" };
+}
+
 export async function askSpark(config: SparkModelConfig, systemPrompt: string, input: string, label = "advice"): Promise<string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (config.key) headers.Authorization = `Bearer ${config.key}`;
@@ -100,6 +108,30 @@ export async function askSpark(config: SparkModelConfig, systemPrompt: string, i
 
 export async function completeSpark(config: SparkModelConfig, context: AdviceContext): Promise<string> {
   return askSpark(config, ADVICE_SYSTEM_PROMPT, adviceUserPrompt(context));
+}
+
+/** 관리자가 넣은 Claude 키로 추천 종목을 받는다. 키는 로그에 남기지 않는다. */
+export async function askClaude(
+  apiKey: string,
+  workspaceId: string,
+  model: string,
+  system: string,
+  user: string,
+  label = "pick",
+): Promise<string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "x-api-key": apiKey,
+    "anthropic-version": "2023-06-01",
+  };
+  if (workspaceId) headers["anthropic-workspace-id"] = workspaceId;
+  console.log(
+    `[${label}] request\n${JSON.stringify({ provider: "anthropic", model, key: "(admin)", workspace: workspaceId ? "(set)" : "(empty)" })}`,
+  );
+  const payload = await postJson("https://api.anthropic.com/v1/messages", headers, claudeAdviceBody(model, system, user), label);
+  const content = anthropicMessageText(payload);
+  if (!content) throw new Error("advice model empty");
+  return content;
 }
 
 export async function completeMember(provider: MemberProvider, apiKey: string, context: AdviceContext): Promise<string> {

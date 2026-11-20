@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import type { AdviceChromeState } from "@/lib/advice-model";
-import { readBrowserClaudeCredential, subscribeBrowserClaudeKey, syncBrowserClaudeCookie } from "@/lib/claude-browser-key";
-import { AdviceBackButton, AdviceButton } from "@/components/layout/AdviceButton";
+import { AdviceBackButton, PickButton } from "@/components/layout/AdviceButton";
 import { LiveMarksTicker } from "@/components/layout/LiveMarksTicker";
 import { Nav } from "@/components/layout/Nav";
 import { SettingsButton } from "@/components/layout/SettingsButton";
@@ -14,16 +11,8 @@ function isBare(pathname: string) {
   return pathname === "/login" || pathname === "/signup" || pathname.startsWith("/admin");
 }
 
-export function AppChrome({ children, advice }: { children: React.ReactNode; advice: AdviceChromeState }) {
+export function AppChrome({ pickEnabled, children }: { pickEnabled: boolean; children: React.ReactNode }) {
   const pathname = usePathname();
-
-  useEffect(() => {
-    function sync() {
-      syncBrowserClaudeCookie(Boolean(readBrowserClaudeCredential()));
-    }
-    sync();
-    return subscribeBrowserClaudeKey(sync);
-  }, [pathname, advice.browserClaude]);
 
   if (isBare(pathname)) return children;
 
@@ -33,11 +22,10 @@ export function AppChrome({ children, advice }: { children: React.ReactNode; adv
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <p className="text-[20px] font-bold tracking-tight text-[#191f28]">에그발란스</p>
-            <AdviceButton />
-            <span className="text-[12px] font-semibold text-[#4e5968]">Claude</span>
+            <PickButton enabled={pickEnabled} />
           </div>
           <div className="flex shrink-0 items-start gap-1.5">
-            {pathname === "/advice" ? (
+            {pathname === "/picks" ? (
               <AdviceBackButton />
             ) : (
               <>
