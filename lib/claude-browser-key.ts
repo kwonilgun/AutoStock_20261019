@@ -29,6 +29,12 @@ export function readBrowserClaudeCredential(): BrowserClaudeCredential | null {
   return { apiKey, workspaceId: readStored(BROWSER_CLAUDE_WORKSPACE) };
 }
 
+/** 자동 가져오기와 오늘 자문은 키와 워크스페이스 ID가 둘 다 있을 때만 다음 화면으로 간다. */
+export function browserClaudeReady(): boolean {
+  const stored = readBrowserClaudeCredential();
+  return Boolean(stored?.apiKey && stored.workspaceId);
+}
+
 export function rememberBrowserClaude(apiKey: string, workspaceId?: string): void {
   if (typeof window === "undefined") return;
   const key = apiKey.trim();

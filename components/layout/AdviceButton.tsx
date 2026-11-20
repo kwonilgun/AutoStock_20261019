@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState, type MouseEvent } from "react";
+import { ClaudeCredentialDialog } from "@/components/claude/ClaudeCredentialDialog";
+import { browserClaudeReady } from "@/lib/claude-browser-key";
 
 const RETURN_KEY = "advice-return";
 
@@ -45,17 +47,36 @@ export function AdviceBackButton() {
 }
 
 export function AdviceButton() {
+  const router = useRouter();
   const { active, returnTo } = useAdviceReturn();
+  const [credentialOpen, setCredentialOpen] = useState(false);
+
+  function onAdviceClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (active || browserClaudeReady()) return;
+    event.preventDefault();
+    setCredentialOpen(true);
+  }
 
   return (
-    <Link
-      href={active ? returnTo : "/advice"}
-      aria-current={active ? "page" : undefined}
-      className={`flex h-10 shrink-0 items-center rounded-full px-3.5 text-[13px] font-semibold ${
-        active ? "bg-[#3182f6] text-white" : "bg-white text-[#4e5968]"
-      }`}
-    >
-      오늘 자문
-    </Link>
+    <>
+      <Link
+        href={active ? returnTo : "/advice"}
+        aria-current={active ? "page" : undefined}
+        onClick={onAdviceClick}
+        className={`flex h-10 shrink-0 items-center rounded-full px-3.5 text-[13px] font-semibold ${
+          active ? "bg-[#3182f6] text-white" : "bg-white text-[#4e5968]"
+        }`}
+      >
+        오늘 자문
+      </Link>
+      <ClaudeCredentialDialog
+        open={credentialOpen}
+        onClose={() => setCredentialOpen(false)}
+        onSaved={() => {
+          setCredentialOpen(false);
+          router.push("/advice");
+        }}
+      />
+    </>
   );
 }

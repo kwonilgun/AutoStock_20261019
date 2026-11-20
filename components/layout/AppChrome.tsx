@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { adviceEngineLabel, type AdviceChromeState } from "@/lib/advice-model";
+import type { AdviceChromeState } from "@/lib/advice-model";
 import { readBrowserClaudeCredential, subscribeBrowserClaudeKey, syncBrowserClaudeCookie } from "@/lib/claude-browser-key";
 import { AdviceBackButton, AdviceButton } from "@/components/layout/AdviceButton";
-import { AdviceModelSelect } from "@/components/layout/AdviceModelSelect";
 import { LiveMarksTicker } from "@/components/layout/LiveMarksTicker";
 import { Nav } from "@/components/layout/Nav";
 import { SettingsButton } from "@/components/layout/SettingsButton";
@@ -17,13 +16,10 @@ function isBare(pathname: string) {
 
 export function AppChrome({ children, advice }: { children: React.ReactNode; advice: AdviceChromeState }) {
   const pathname = usePathname();
-  const [browserClaude, setBrowserClaude] = useState(advice.browserClaude);
 
   useEffect(() => {
     function sync() {
-      const on = Boolean(readBrowserClaudeCredential());
-      syncBrowserClaudeCookie(on);
-      setBrowserClaude(on);
+      syncBrowserClaudeCookie(Boolean(readBrowserClaudeCredential()));
     }
     sync();
     return subscribeBrowserClaudeKey(sync);
@@ -37,9 +33,8 @@ export function AppChrome({ children, advice }: { children: React.ReactNode; adv
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <p className="text-[20px] font-bold tracking-tight text-[#191f28]">에그발란스</p>
-            {browserClaude ? null : <AdviceModelSelect advice={advice} />}
             <AdviceButton />
-            <span className="text-[12px] font-semibold text-[#4e5968]">{browserClaude ? "Claude" : adviceEngineLabel(advice.selected)}</span>
+            <span className="text-[12px] font-semibold text-[#4e5968]">Claude</span>
           </div>
           <div className="flex shrink-0 items-start gap-1.5">
             {pathname === "/advice" ? (

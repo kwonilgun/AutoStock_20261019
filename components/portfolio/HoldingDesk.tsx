@@ -12,7 +12,9 @@ import type { RecommendAddSeed } from "@/lib/recommendations";
 import type { SecurityMatch } from "@/lib/quotes/parse";
 import { isPlainCashTicker } from "@/lib/quotes/symbol";
 import { deleteHolding, saveHolding, suggestSecurities } from "@/lib/server/actions";
+import { ClaudeCredentialDialog } from "@/components/claude/ClaudeCredentialDialog";
 import { BraveImport } from "@/components/portfolio/BraveImport";
+import { browserClaudeReady } from "@/lib/claude-browser-key";
 
 type Draft = {
   ticker: string;
@@ -853,6 +855,7 @@ export function HoldingDesk({
   const wasEmpty = useRef(source.length === 0);
   const [adding, setAdding] = useState(source.length === 0);
   const [braveOpen, setBraveOpen] = useState(false);
+  const [credentialOpen, setCredentialOpen] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [addNotice, setAddNotice] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -1232,7 +1235,10 @@ export function HoldingDesk({
             </button>
             <button
               type="button"
-              onClick={() => setBraveOpen(true)}
+              onClick={() => {
+                if (browserClaudeReady()) setBraveOpen(true);
+                else setCredentialOpen(true);
+              }}
               className="h-8 rounded-xl bg-[#f2f4f6] px-3 text-[13px] font-bold text-[#191f28]"
             >
               자동
@@ -1272,6 +1278,15 @@ export function HoldingDesk({
           <p className="mt-3 text-[13px] leading-5 text-[#8b95a1]">원화와 달러 현금은 다음 국면의 매수 실탄으로 따로 둡니다.</p>
         ) : null}
       </section>
+
+      <ClaudeCredentialDialog
+        open={credentialOpen}
+        onClose={() => setCredentialOpen(false)}
+        onSaved={() => {
+          setCredentialOpen(false);
+          setBraveOpen(true);
+        }}
+      />
 
       <BraveImport
         open={braveOpen}

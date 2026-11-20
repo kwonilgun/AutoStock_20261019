@@ -1,13 +1,11 @@
 import { z } from "zod";
-import { resolveAdviceEngine, type AdviceEngine, type MemberProvider } from "@/lib/advice-model";
+import type { AdviceEngine } from "@/lib/advice-model";
 import { adviceTextProblem } from "@/lib/engine/advice-check";
 import { adviceContext, type AdviceContext, type AdviceSource } from "@/lib/engine/advice-context";
 import { draftAdvice, type AdviceSections } from "@/lib/engine/advice-draft";
 import { PHASE_STORY } from "@/lib/engine/phase-story";
-import { readAdviceCache, writeAdviceCache } from "@/lib/server/advice-cache";
-import { hasBrowserClaudeCookie, readAdviceEngine } from "@/lib/server/advice-choice";
-import { completeMember, completeSpark, type SparkModelConfig } from "@/lib/server/advice-remote";
-import { listSavedProviders, readLlmKey } from "@/lib/server/llm-keys";
+import { readAdviceCache } from "@/lib/server/advice-cache";
+import { hasBrowserClaudeCookie } from "@/lib/server/advice-choice";
 import type { AppView } from "@/lib/server/portfolio";
 import { getCurrentUser } from "@/lib/server/session";
 
@@ -27,20 +25,6 @@ const AdviceJson = z.object({
   actions: z.string().trim().min(1).max(1200),
   leave: z.string().trim().min(1).max(1200),
 });
-
-export type AdviceModelConfig = SparkModelConfig;
-
-/** LM Studio가 떠 있는 Spark 주소. URL 또는 모델 이름이 없으면 초안만 쓴다. */
-export function adviceModelConfig(): AdviceModelConfig | null {
-  const url = process.env.ADVICE_MODEL_URL?.trim();
-  const model = process.env.ADVICE_MODEL_NAME?.trim();
-  if (!url || !model) return null;
-  return {
-    url: url.replace(/\/$/, ""),
-    model,
-    key: process.env.ADVICE_MODEL_KEY?.trim() ?? "",
-  };
-}
 
 export function adviceSourceFromView(
   view: AppView,
@@ -73,34 +57,18 @@ export async function loadAdvice(source: AdviceSource, options?: { refresh?: boo
     if (!options?.refresh) {
       const cached = await readAdviceCache(member.id, "anthropic");
       if (cached) return cached;
-      return { ...draftAdvice(context), source: "draft", notice: null, cachedAt: null, awaitingBrowser: true };
     }
+    return { ...draftAdvice(context), source: "draft", notice: null, cachedAt: null, awaitingBrowser: true };
   }
-  const saved = member ? await listSavedProviders(member.id) : [];
-  const engine = resolveAdviceEngine(await readAdviceEngine(), saved);
-  if (member && !options?.refresh) {
-    const cached = await readAdviceCache(member.id, engine);
-    if (cached) return cached;
-  }
-  const key = engine === "spark" || !member ? null : await readLlmKey(member.id, engine);
-  const brief = await buildAdvice(context, engine, key);
-  if (!member) return { ...brief, cachedAt: null };
-  const savedAt = await writeAdviceCache(member.id, engine, brief);
-  return { ...brief, cachedAt: savedAt };
+  return {
+    ...draftAdvice(context),
+    source: "draft",
+    notice: "오늘 자문은 Claude로만 받습니다. Claude API 키와 워크스페이스 ID를 입력해 주세요.",
+    cachedAt: null,
+  };
 }
 
 type AttemptFail = "transport" | "shape" | "mismatch";
-
-export async function buildAdvice(context: AdviceContext, engine: AdviceEngine, key: string | null): Promise<AdviceBrief> {
-  if (engine !== "spark") {
-    const memberResult = await runMember(engine, key, context);
-    if ("sections" in memberResult) {
-      return { ...memberResult.sections, source: engine, notice: null, cachedAt: null };
-    }
-    return withSparkFallback(context, memberResult.fail);
-  }
-  return withSparkFallback(context, null);
-}
 
 /** 브라우저가 Claude 본문을 가져온 뒤의 검사. 키가 서버를 거치지 않는다. */
 export async function adviceFromClaudeReply(context: AdviceContext, raw: string | null): Promise<AdviceBrief> {
@@ -109,77 +77,19 @@ export async function adviceFromClaudeReply(context: AdviceContext, raw: string 
     if ("sections" in read) {
       return { ...read.sections, source: "anthropic", notice: null, cachedAt: null };
     }
-    return withSparkFallback(context, read.fail);
+    return claudeDraft(context, read.fail);
   }
-  return withSparkFallback(context, "transport");
+  return claudeDraft(context, "transport");
 }
 
-async function withSparkFallback(context: AdviceContext, memberFail: AttemptFail | null): Promise<AdviceBrief> {
-  const draft = draftAdvice(context);
-  const spark = await runSpark(context);
-  if ("sections" in spark) {
-    return {
-      ...spark.sections,
-      source: "spark",
-      notice: memberFail ? memberFallbackNotice(memberFail) : null,
-      cachedAt: null,
-    };
-  }
-  if (memberFail) {
-    return { ...draft, source: "draft", notice: "고른 모델과 Spark를 쓰지 못해 앱 계산으로 만든 초안입니다.", cachedAt: null };
-  }
-  if (!adviceModelConfig()) {
-    adviceLog("skip", "ADVICE_MODEL_URL 또는 ADVICE_MODEL_NAME이 없어 모델을 호출하지 않습니다.");
-    return { ...draft, source: "draft", notice: null, cachedAt: null };
-  }
-  return { ...draft, source: "draft", notice: sparkNotice(spark.fail), cachedAt: null };
-}
-
-function memberFallbackNotice(fail: AttemptFail): string {
-  if (fail === "transport") return "고른 모델 키로 받지 못해 Spark Qwen으로 글을 만들었습니다.";
-  return "고른 모델 응답을 쓰지 못해 Spark Qwen으로 글을 만들었습니다.";
-}
-
-function sparkNotice(fail: AttemptFail): string {
-  if (fail === "shape") return "Spark 응답 형식이 달라 앱 계산 초안을 보여 줍니다.";
-  if (fail === "mismatch") return "Spark 응답이 엔진 숫자와 달라 앱 계산 초안을 보여 줍니다.";
-  return "Spark에 연결하지 못해 앱 계산으로 만든 초안입니다.";
-}
-
-async function runMember(
-  engine: MemberProvider,
-  key: string | null,
-  context: AdviceContext,
-): Promise<{ sections: AdviceSections } | { fail: AttemptFail }> {
-  if (!key) {
-    adviceLog("member-miss", { provider: engine });
-    return { fail: "transport" };
-  }
-  try {
-    const raw = await completeMember(engine, key, context);
-    const read = readAdviceJson(raw, context);
-    if ("fail" in read) return read;
-    adviceLog("accept", { provider: engine, sections: read.sections });
-    return read;
-  } catch (error) {
-    adviceLog("member-error", { provider: engine, message: error instanceof Error ? error.message : "error" });
-    return { fail: "transport" };
-  }
-}
-
-async function runSpark(context: AdviceContext): Promise<{ sections: AdviceSections } | { fail: AttemptFail }> {
-  const config = adviceModelConfig();
-  if (!config) return { fail: "transport" };
-  try {
-    const raw = await completeSpark(config, context);
-    const read = readAdviceJson(raw, context);
-    if ("fail" in read) return read;
-    adviceLog("accept", { provider: "spark", sections: read.sections });
-    return read;
-  } catch (error) {
-    adviceLog("error", error instanceof Error ? error.message : String(error));
-    return { fail: "transport" };
-  }
+function claudeDraft(context: AdviceContext, fail: AttemptFail): AdviceBrief {
+  const notice =
+    fail === "shape"
+      ? "Claude 응답 형식이 달라 앱 계산 초안을 보여 줍니다."
+      : fail === "mismatch"
+        ? "Claude 응답이 엔진 숫자와 달라 앱 계산 초안을 보여 줍니다."
+        : "Claude로 받지 못해 앱 계산으로 만든 초안입니다.";
+  return { ...draftAdvice(context), source: "draft", notice, cachedAt: null };
 }
 
 function readAdviceJson(raw: string, context: AdviceContext): { sections: AdviceSections } | { fail: AttemptFail } {

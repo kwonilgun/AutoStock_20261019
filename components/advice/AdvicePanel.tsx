@@ -7,7 +7,6 @@ import { SeoulClock } from "@/components/home/SeoulClock";
 import { requestBrowserClaudeAdvice } from "@/lib/advice-claude-browser";
 import { adviceEngineLabel } from "@/lib/advice-model";
 import { readBrowserClaudeCredential, subscribeBrowserClaudeKey, syncBrowserClaudeCookie } from "@/lib/claude-browser-key";
-import { refreshAdvice } from "@/lib/server/advice-actions";
 import type { AdviceBrief as AdviceBriefView } from "@/lib/server/advice";
 
 function savedLabel(cachedAt: string | null): string | null {
@@ -74,22 +73,17 @@ export function AdvicePanel({ brief }: { brief: AdviceBriefView }) {
     setError(null);
     setPending(true);
     const credential = readBrowserClaudeCredential();
-    if (credential) {
-      syncBrowserClaudeCookie(true);
-      setUsingBrowser(true);
-      const result = await requestBrowserClaudeAdvice(true, credential);
-      if (result.ok) setShown(result.brief);
-      else setError(result.message);
+    if (!credential) {
+      setError("오늘 자문은 Claude만 지원합니다. Claude API 키와 워크스페이스 ID를 입력해 주세요.");
       setPending(false);
       return;
     }
-    const result = await refreshAdvice();
-    if (!result.ok) {
-      setError(result.message);
-      setPending(false);
-      return;
-    }
-    router.refresh();
+    syncBrowserClaudeCookie(true);
+    setUsingBrowser(true);
+    const result = await requestBrowserClaudeAdvice(true, credential);
+    if (result.ok) setShown(result.brief);
+    else setError(result.message);
+    setPending(false);
   }
 
   return (
@@ -115,8 +109,8 @@ export function AdvicePanel({ brief }: { brief: AdviceBriefView }) {
           </div>
         </div>
         <p className="mt-2 text-[14px] leading-5 text-[#6b7684]">
-          국면, 보유, 괴리는 앱이 계산한 값을 그대로 씁니다. 저장된 글이 있으면 모델을 다시 부르지 않습니다.
-          {usingBrowser ? " 자산 자동 추가에 저장한 Claude 키로 받습니다." : ""}
+          국면, 보유, 괴리는 앱이 계산한 값을 그대로 씁니다. 저장된 글이 있으면 모델을 다시 부르지 않습니다. 오늘 자문은 이
+          브라우저의 Claude 키로만 받습니다.
         </p>
         {saved ? <p className="mt-2 text-[12px] font-medium text-[#8b95a1]">{saved}</p> : null}
         {error ? <p className="mt-2 text-[13px] font-medium text-[#f04452]">{error}</p> : null}
