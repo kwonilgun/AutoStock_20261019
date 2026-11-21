@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { pickAddSeed, pickBuys, type PickBuy, type PickSnapshot } from "./pick-context";
+import { pickAddSeed, pickBuys, pickSells, type PickBuy, type PickSnapshot } from "./pick-context";
 import { assignedPickEngine, pickVisibleCache } from "@/lib/pick-engine";
 import { parsePickReason, parsePickReply, parseStoredPick, serializeStoredPick } from "./pick-parse";
 import { PICK_REASON_SYSTEM_PROMPT, PICK_SYSTEM_PROMPT, pickReasonUserPrompt } from "./pick-prompt";
+import { buildPickSchedule, nextTradingDays } from "./pick-schedule";
 import type { HoldingInput, Sleeve, SleeveSnapshot } from "./types";
 
 function holding(partial: Partial<HoldingInput> & Pick<HoldingInput, "ticker" | "sleeve" | "quantity" | "price">): HoldingInput {
@@ -65,6 +66,27 @@ describe("추천 종목 대상", () => {
     expect(buys[1].holdings.map((row) => row.ticker)).toEqual(["TLT"]);
   });
 
+  it("넘치고 줄일 금액이 있는 자산군만 담고 펀드는 뺀다", () => {
+    const holdings = [
+      holding({ ticker: "voo", name: "Vanguard S&P 500", sleeve: "US_EQUITY", quantity: 2, price: 100, currency: "USD" }),
+      holding({ ticker: "fund", sleeve: "FUND", quantity: 1, price: 10 }),
+    ];
+    const sells = pickSells(
+      holdings,
+      [
+        sleeve("US_EQUITY", "over", -200_000, 5),
+        sleeve("GOLD", "under", 50_000, -3),
+        sleeve("FUND", "over", -10_000, 4),
+        sleeve("KRW_CASH", "over", 0, 3),
+      ],
+      1000,
+    );
+    expect(sells.map((row) => row.sleeve)).toEqual(["US_EQUITY"]);
+    expect(sells[0].sellKrw).toBe(200_000);
+    expect(sells[0].gapPp).toBe(5);
+    expect(sells[0].holdings).toEqual([{ ticker: "VOO", name: "Vanguard S&P 500", valueKrw: 200_000 }]);
+  });
+
   it("알고 있는 미국 티커는 달러로, 한국 코드는 원화로 자산 추가 값을 만든다", () => {
     expect(pickAddSeed("BOND_30Y", "tlt")).toEqual({ ticker: "TLT", sleeve: "BOND_30Y", currency: "USD" });
     expect(pickAddSeed("KR_EQUITY", "069500")).toEqual({ ticker: "069500", sleeve: "KR_EQUITY", currency: "KRW" });
@@ -121,6 +143,16 @@ describe("추천 종목 응답", () => {
       reason: "  미국주식이 부족해서 VOO를 골랐습니다.  ",
     });
     expect(parseStoredPick(withReason)?.reason).toBe("미국주식이 부족해서 VOO를 골랐습니다.");
+    expect(parseStoredPick(withReason)?.plan ?? null).toBeNull();
+    const withPlan = serializeStoredPick({
+      snapshot,
+      engine: "claude",
+      items: [{ sleeve: "US_EQUITY", ticker: "VOO", name: "Vanguard S&P 500", note: "미국 주식 ETF" }],
+      reason: "미국주식이 부족해서 VOO를 골랐습니다.",
+      plan: "  미국주식을 유지하고 부족한 만큼 VOO를 삽니다.  ",
+    });
+    expect(parseStoredPick(withPlan)?.plan).toBe("미국주식을 유지하고 부족한 만큼 VOO를 삽니다.");
+    expect(parseStoredPick(withPlan)?.reason).toBe("미국주식이 부족해서 VOO를 골랐습니다.");
     const reset = serializeStoredPick({ snapshot, engine: "claude", items: parseStoredPick(withReason)!.items });
     expect(reset).not.toContain("VOO를 골랐습니다");
     expect(parseStoredPick(reset)?.reason ?? null).toBeNull();
@@ -131,11 +163,11 @@ describe("추천 종목 응답", () => {
     expect(parseStoredPick("깨진 json")).toBeNull();
   });
 
-  it("관리자 배정은 Claude만 Claude이고 나머지는 Spark다", () => {
+  it("추천 모델은 Claude다", () => {
     expect(assignedPickEngine("claude")).toBe("claude");
-    expect(assignedPickEngine("spark")).toBe("spark");
-    expect(assignedPickEngine(undefined)).toBe("spark");
-    expect(assignedPickEngine("openai")).toBe("spark");
+    expect(assignedPickEngine("spark")).toBe("claude");
+    expect(assignedPickEngine(undefined)).toBe("claude");
+    expect(assignedPickEngine("openai")).toBe("claude");
   });
 
   it("Claude 키가 없으면 Spark로 받은 저장본을 보여 준다", () => {
@@ -174,5 +206,39 @@ describe("추천 종목 응답", () => {
     expect(prompt).toContain("VOO");
     expect(prompt).toContain("미국주식");
     expect(prompt).toContain("-4.2");
+  });
+
+  it("향후 계획은 다음 4거래일에 매도와 매수를 나누고 합계를 유지한다", () => {
+    expect(nextTradingDays("2026-11-21")).toEqual(["2026-11-23", "2026-11-24", "2026-11-25", "2026-11-26"]);
+    expect(nextTradingDays("2026-11-19")).toEqual(["2026-11-20", "2026-11-23", "2026-11-24", "2026-11-25"]);
+    const days = buildPickSchedule({
+      fromDay: "2026-11-21",
+      sells: [
+        {
+          sleeve: "KR_EQUITY",
+          label: "한국주식",
+          gapPp: 3.5,
+          sellKrw: 900,
+          holdings: [
+            { ticker: "069500", name: "KODEX 200", valueKrw: 600 },
+            { ticker: "102110", name: "TIGER 200", valueKrw: 400 },
+          ],
+        },
+      ],
+      buys: [{ ...buy("US_EQUITY"), label: "미국주식", buyKrw: 100 }],
+      items: [
+        { sleeve: "US_EQUITY", ticker: "VOO", name: "Vanguard" },
+        { sleeve: "US_EQUITY", ticker: "SPY", name: "SPDR" },
+      ],
+    });
+    expect(days.map((day) => day.date)).toEqual(["2026-11-23", "2026-11-24", "2026-11-25", "2026-11-26"]);
+    const sold = days.flatMap((day) => day.sells);
+    const bought = days.flatMap((day) => day.buys);
+    expect(sold.reduce((sum, line) => sum + line.amountKrw, 0)).toBe(900);
+    expect(bought.reduce((sum, line) => sum + line.amountKrw, 0)).toBe(100);
+    expect(sold.filter((line) => line.ticker === "069500").reduce((sum, line) => sum + line.amountKrw, 0)).toBe(600);
+    expect(sold.filter((line) => line.ticker === "102110").reduce((sum, line) => sum + line.amountKrw, 0)).toBe(300);
+    expect(days.map((day) => day.buys.map((line) => line.ticker))).toEqual([["VOO"], ["SPY"], ["VOO"], ["SPY"]]);
+    expect(days[0].sells[0].ticker).toBe("069500");
   });
 });

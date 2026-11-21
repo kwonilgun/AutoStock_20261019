@@ -34,7 +34,7 @@ export function ApproveUserSwitch({
   }
 
   return (
-    <div className="mt-2 flex flex-col items-start gap-1">
+    <div className="flex shrink-0 flex-col items-start gap-1">
       <button
         type="button"
         role="switch"

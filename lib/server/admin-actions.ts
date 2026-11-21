@@ -13,7 +13,6 @@ import { createAnalysisReport, deleteAnalysisReport, updateAnalysisReport } from
 import { parseWhyNote } from "@/lib/engine/phase-why";
 import { currentWhyNotes, parseOverrides, savePhaseSetting } from "@/lib/server/phase-setting";
 import { getRecommendationSetting, saveRecommendationSetting } from "@/lib/server/recommendation-setting";
-import { PICK_ENGINES } from "@/lib/pick-engine";
 import { hashPassword } from "@/lib/server/password";
 import { readPickClaudeAdmin, savePickClaudeSetting } from "@/lib/server/pick-llm";
 import { getCurrentUser } from "@/lib/server/session";
@@ -285,23 +284,22 @@ export async function adminSetUserPickLimit(userId: string, limit: number): Prom
   }
 }
 
-/** 이 사용자의 추천 종목 모델을 Spark 또는 Claude로 정한다. */
-export async function adminSetUserPickEngine(userId: string, engine: string): Promise<AdminResult> {
+/** 이 사용자가 이미 쓴 Ai-종목추천 횟수를 0으로 되돌린다. 횟수 제한은 바꾸지 않는다. */
+export async function adminResetUserPickUsed(userId: string): Promise<AdminResult> {
   try {
     await requireAdmin();
     const id = z.string().min(1).parse(userId);
-    const next = z.enum(PICK_ENGINES).parse(engine);
     const target = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true, pickUsed: true },
     });
     if (!target || target.role !== "user") return { ok: false, message: "사용자를 찾지 못했습니다." };
-    await prisma.user.update({ where: { id: target.id }, data: { pickEngine: next } });
+    await prisma.user.update({ where: { id: target.id }, data: { pickUsed: 0 } });
     revalidatePath("/admin/users");
     revalidatePath("/picks");
     return {
       ok: true,
-      message: next === "claude" ? `${target.email} 추천 종목을 Claude로 바꿨습니다.` : `${target.email} 추천 종목을 Spark로 바꿨습니다.`,
+      message: `${target.email} 사용 횟수를 0으로 되돌렸습니다. 이전에는 ${target.pickUsed}회 사용했습니다.`,
     };
   } catch (error) {
     return fail(error);

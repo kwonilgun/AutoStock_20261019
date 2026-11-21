@@ -1,6 +1,5 @@
 import { keyLast4 } from "@/lib/advice-model";
 import { prisma } from "@/lib/db";
-import { assignedPickEngine, type PickEngine } from "@/lib/pick-engine";
 
 const ID = "global";
 
@@ -30,11 +29,6 @@ export function pickClaudeCredential(apiKey: string, workspaceId: string): PickC
 export async function loadPickClaudeSetting(): Promise<void> {
   const row = await prisma.pickClaudeSetting.findUnique({ where: { id: ID } });
   active = pickClaudeCredential(row?.cipher ?? "", row?.workspaceId ?? "");
-}
-
-export async function readUserPickEngine(userId: string): Promise<PickEngine> {
-  const row = await prisma.user.findUnique({ where: { id: userId }, select: { pickEngine: true } });
-  return assignedPickEngine(row?.pickEngine);
 }
 
 /** 관리자 화면에 보여줄 값. API 키 평문은 돌려주지 않는다. */

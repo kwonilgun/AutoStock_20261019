@@ -2,27 +2,29 @@
 
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import { pickSnapshot, type PickSnapshot } from "@/lib/engine/pick-context";
+import { pickSells, pickSnapshot, type PickSnapshot } from "@/lib/engine/pick-context";
 import { parsePickReason, parsePickReply, type PickItem } from "@/lib/engine/pick-parse";
 import { PICK_REASON_SYSTEM_PROMPT, PICK_SYSTEM_PROMPT, pickReasonUserPrompt, pickUserPrompt } from "@/lib/engine/pick-prompt";
+import { buildPickSchedule, type PickScheduleDay } from "@/lib/engine/pick-schedule";
 import { emptyMessage } from "@/lib/engine/rebalance";
+import { seoulDay } from "@/lib/format";
 import { PICK_DISABLED_MESSAGE, PICK_LIMIT_MESSAGE, type PickEngine, type PickQuota } from "@/lib/pick-engine";
 import { pickErrorDetail, pickLogText } from "@/lib/pick-log";
 import { askClaude, askSpark, memberModelName, readSparkConfig } from "@/lib/server/advice-remote";
 import { clearPickCache, clearPickReason, readPickCache, writePickCache } from "@/lib/server/pick-cache";
 import { giveBackPickUse, readPickQuota, takePickUse } from "@/lib/server/pick-quota";
-import { readPickClaudeCredential, readUserPickEngine } from "@/lib/server/pick-llm";
+import { readPickClaudeCredential } from "@/lib/server/pick-llm";
 import { getView } from "@/lib/server/portfolio";
 import { getCurrentUser } from "@/lib/server/session";
 
 export type PickResult =
   | { ok: true; kind: "empty"; quota?: PickQuota }
-  | { ok: true; kind: "picks"; snapshot: PickSnapshot; items: PickItem[]; cachedAt: string | null; reason: string | null; quota?: PickQuota }
+  | { ok: true; kind: "picks"; snapshot: PickSnapshot; items: PickItem[]; cachedAt: string | null; reason: string | null; plan: string | null; quota?: PickQuota }
   | { ok: false; message: string; quota?: PickQuota };
 
 export type PickPrep =
   | { ok: true; kind: "empty" }
-  | { ok: true; kind: "cached"; snapshot: PickSnapshot; items: PickItem[]; cachedAt: string; reason: string | null }
+  | { ok: true; kind: "cached"; snapshot: PickSnapshot; items: PickItem[]; cachedAt: string; reason: string | null; plan: string | null }
   | { ok: true; kind: "prompt"; model: string; system: string; user: string; snapshot: PickSnapshot }
   | { ok: false; message: string };
 
@@ -56,6 +58,7 @@ async function preparePick(refresh: boolean, engine: PickEngine): Promise<PickPr
           items: cached.items,
           cachedAt: cached.cachedAt,
           reason: cached.reason ?? null,
+          plan: cached.plan ?? null,
         };
       }
     }
@@ -136,7 +139,7 @@ async function finishPick(raw: string | null, engine: PickEngine): Promise<PickR
     if (items.length === 0) return { ok: false, message: "추천 종목을 읽지 못했습니다." };
     const cachedAt = await writePickCache(user.id, { snapshot, items, engine });
     revalidatePath("/picks");
-    return { ok: true, kind: "picks", snapshot, items, cachedAt, reason: null };
+    return { ok: true, kind: "picks", snapshot, items, cachedAt, reason: null, plan: null };
   } catch (error) {
     unstable_rethrow(error);
     console.log(pickLogText({ step: "finish", ok: false, kind: "error", detail: pickErrorDetail(error) }));
@@ -169,7 +172,7 @@ function cachedOrEmpty(prep: PickPrep): PickResult | null {
   if (!prep.ok) return prep;
   if (prep.kind === "empty") return { ok: true, kind: "empty" };
   if (prep.kind === "cached") {
-    return { ok: true, kind: "picks", snapshot: prep.snapshot, items: prep.items, cachedAt: prep.cachedAt, reason: prep.reason };
+    return { ok: true, kind: "picks", snapshot: prep.snapshot, items: prep.items, cachedAt: prep.cachedAt, reason: prep.reason, plan: prep.plan };
   }
   return null;
 }
@@ -307,7 +310,13 @@ export async function requestPickReason(): Promise<PickReasonResult> {
       console.log(pickLogText({ step: "reason", ok: false, kind: "stale", items: fresh?.items.length ?? 0 }));
       return { ok: false, message: "추천 종목이 바뀌어 이유를 저장하지 않았습니다." };
     }
-    await writePickCache(user.id, { snapshot: fresh.snapshot, items: fresh.items, engine: fresh.engine, reason: text });
+    await writePickCache(user.id, {
+      snapshot: fresh.snapshot,
+      items: fresh.items,
+      engine: fresh.engine,
+      reason: text,
+      plan: fresh.plan ?? null,
+    });
     revalidatePath("/picks");
     return { ok: true, text };
   } catch (error) {
@@ -317,7 +326,52 @@ export async function requestPickReason(): Promise<PickReasonResult> {
   }
 }
 
-/** 관리자가 이 사용자에게 지정한 모델로 추천을 받는다. 모델은 인자로 받지 않는다. */
+export type PickPlanResult = { ok: true; days: PickScheduleDay[] } | { ok: false; message: string };
+
+/** 넘친 금액과 화면에 나온 매수 후보를 다음 거래일로 나눈다. 추천 횟수에는 넣지 않는다. */
+export async function requestPickPlan(): Promise<PickPlanResult> {
+  try {
+    const user = await getCurrentUser();
+    if (!user || user.role === "admin") {
+      console.log(pickLogText({ step: "plan", ok: false, kind: "no-member" }));
+      return { ok: false, message: "향후 계획을 받지 못했습니다." };
+    }
+    if (!user.pickEnabled) {
+      console.log(pickLogText({ step: "plan", ok: false, kind: "disabled" }));
+      return { ok: false, message: PICK_DISABLED_MESSAGE };
+    }
+    const cached = await readPickCache(user.id);
+    if (!cached || cached.items.length === 0) {
+      console.log(pickLogText({ step: "plan", ok: false, kind: "empty", items: cached?.items.length ?? 0 }));
+      return { ok: false, message: "계획을 적을 추천 종목이 없습니다." };
+    }
+    const view = await getView();
+    const sells = emptyMessage(view.result) ? [] : pickSells(view.holdings, view.result.sleeves, view.portfolio.usdKrw);
+    const days = buildPickSchedule({
+      sells,
+      buys: cached.snapshot.buys,
+      items: cached.items,
+      fromDay: seoulDay(),
+    });
+    console.log(
+      pickLogText({
+        step: "plan",
+        ok: true,
+        kind: "schedule",
+        buys: cached.snapshot.buys.length,
+        items: cached.items.length,
+        sleeves: [...sells.map((sell) => sell.sleeve), ...cached.snapshot.buys.map((buy) => buy.sleeve)],
+      }),
+    );
+    return { ok: true, days };
+  } catch (error) {
+    unstable_rethrow(error);
+    console.log(pickLogText({ step: "plan", ok: false, kind: "error", detail: pickErrorDetail(error) }));
+    return { ok: false, message: "향후 계획을 받지 못했습니다." };
+  }
+}
+
+/** 추천 종목은 Claude로 받는다. 모델은 인자로 받지 않는다. */
 export async function requestPick(refresh: boolean): Promise<PickResult> {
   const user = await getCurrentUser();
   if (!user || user.role === "admin") return { ok: false, message: "추천 종목을 받지 못했습니다." };
@@ -325,9 +379,8 @@ export async function requestPick(refresh: boolean): Promise<PickResult> {
     console.log(pickLogText({ step: "request", refresh, ok: false, kind: "disabled" }));
     return { ok: false, message: PICK_DISABLED_MESSAGE };
   }
-  const engine = await readUserPickEngine(user.id);
-  console.log(pickLogText({ step: "request", refresh, kind: "assigned", model: engine }));
-  const result = engine === "spark" ? await runSparkPick(refresh) : await runClaudePick(refresh);
+  console.log(pickLogText({ step: "request", refresh, kind: "assigned", model: "claude" }));
+  const result = await runClaudePick(refresh);
   const quota = await readPickQuota(user.id);
   return { ...result, quota };
 }

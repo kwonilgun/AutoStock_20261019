@@ -4,9 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { formatPp, formatWon } from "@/lib/format";
 import type { PickBuy, PickSnapshot } from "@/lib/engine/pick-context";
 import type { PickItem } from "@/lib/engine/pick-parse";
+import { formatScheduleDate, type PickScheduleDay, type PickScheduleLine } from "@/lib/engine/pick-schedule";
 import { PICK_LIMIT_MESSAGE, type PickQuota } from "@/lib/pick-engine";
 import { pickLogText } from "@/lib/pick-log";
-import { requestPick, requestPickReason } from "@/lib/server/pick-actions";
+import { requestPick, requestPickPlan, requestPickReason } from "@/lib/server/pick-actions";
 import type { SavedPick } from "@/lib/server/pick-cache";
 import { logPick } from "@/lib/server/pick-log";
 
@@ -44,17 +45,27 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
   const [reason, setReason] = useState<string | null>(initial?.reason ?? null);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [reasonPending, setReasonPending] = useState(false);
+  const [days, setDays] = useState<PickScheduleDay[] | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [planPending, setPlanPending] = useState(false);
   const requestId = useRef(0);
   const reasonId = useRef(0);
+  const planId = useRef(0);
+  const planAsked = useRef<string | null>(null);
 
   const load = useCallback(async (refresh: boolean) => {
     const id = requestId.current + 1;
     requestId.current = id;
     reasonId.current += 1;
+    planId.current += 1;
+    planAsked.current = null;
     setError(null);
     setReason(null);
     setReasonError(null);
     setReasonPending(false);
+    setDays(null);
+    setPlanError(null);
+    setPlanPending(false);
     setPending(true);
     const result = await requestPick(refresh);
     if (result.quota) {
@@ -108,6 +119,25 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
     setReasonPending(false);
   }, []);
 
+  const askPlan = useCallback(async () => {
+    const id = planId.current + 1;
+    planId.current = id;
+    setPlanError(null);
+    setPlanPending(true);
+    const result = await requestPickPlan();
+    if (planId.current !== id) return;
+    reportPick({
+      step: "plan",
+      ok: result.ok,
+      kind: result.ok ? "schedule" : "error",
+      message: result.ok ? "" : result.message,
+      days: result.ok ? result.days.length : 0,
+    });
+    if (!result.ok) setPlanError(result.message);
+    else setDays(result.days);
+    setPlanPending(false);
+  }, []);
+
   useEffect(() => {
     setUsed(quota.used);
     setLimit(quota.limit);
@@ -132,6 +162,14 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
     };
   }, [initial, load, quota.used, quota.limit]);
 
+  const listKey = itemKey(items);
+  useEffect(() => {
+    if (pending || items.length === 0) return;
+    if (planAsked.current === listKey) return;
+    planAsked.current = listKey;
+    void askPlan();
+  }, [pending, items.length, listKey, askPlan]);
+
   const buys = snapshot?.buys ?? [];
   const saved = savedLabel(cachedAt);
   const left = Math.max(0, limit - used);
@@ -153,8 +191,8 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
         </div>
         <p className="mt-2 text-[14px] leading-5 text-[#6b7684]">
           차이가 2%포인트를 넘어 부족한 자산군만 고릅니다. 관리자가 지정한 모델의 저장본이 있으면 다시 부르지 않습니다.
-          다시 받기를 누르면 지금 괴리로 새로 받고, 저장된 추천 이유는 지웁니다. 주문은 넣지 않습니다. 종목을 새로 받을
-          때마다 횟수가 1 줄어듭니다.
+          다시 받기를 누르면 지금 괴리로 새로 받고, 저장된 추천 이유는 지웁니다. 향후 계획은 그 종목으로 다시 나눕니다.
+          주문은 넣지 않습니다. 종목을 새로 받을 때마다 횟수가 1 줄어듭니다.
         </p>
         <p className="mt-2 text-[12px] font-medium text-[#8b95a1]">
           남은 횟수 {left}회 · 제한 {limit}회
@@ -219,9 +257,75 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
         </section>
       ) : null}
 
+      {!pending && items.length > 0 ? <ScheduleCard days={days} pending={planPending} error={planError} onRetry={() => void askPlan()} /> : null}
+
       <p className="px-1 text-[12px] leading-5 text-[#8b95a1]">추천은 투자 판단을 돕기 위한 참고 자료이며 수익을 보장하지 않습니다.</p>
     </div>
   );
+}
+
+function ScheduleCard({
+  days,
+  pending,
+  error,
+  onRetry,
+}: {
+  days: PickScheduleDay[] | null;
+  pending: boolean;
+  error: string | null;
+  onRetry: () => void;
+}) {
+  return (
+    <section className="rounded-[22px] bg-white px-5 py-5">
+      <h2 className="text-[15px] font-bold text-[#191f28]">향후 추진 계획</h2>
+      <p className="mt-2 text-[13px] leading-5 text-[#8b95a1]">
+        다음 4거래일에 금액을 똑같이 나눕니다. 주말은 건너뛰고, 휴장일은 빼지 않습니다. 주문은 넣지 않습니다.
+      </p>
+      {pending && !days ? <p className="mt-4 text-[14px] text-[#6b7684]">일정을 나누고 있습니다.</p> : null}
+      {error ? <p className="mt-3 text-[13px] font-medium text-[#f04452]">{error}</p> : null}
+      {error ? (
+        <button type="button" onClick={onRetry} disabled={pending} className="mt-3 h-11 w-full rounded-2xl bg-[#3182f6] text-[15px] font-bold text-white disabled:opacity-60">
+          다시 계산
+        </button>
+      ) : null}
+      {days ? (
+        <ol className="mt-4 flex flex-col gap-4">
+          {days.map((day) => (
+            <li key={day.date}>
+              <p className="text-[13px] font-bold text-[#191f28]">{formatScheduleDate(day.date)}</p>
+              <ul className="mt-1">
+                {day.sells.map((line) => (
+                  <ScheduleRow key={`sell-${day.date}-${line.ticker}-${line.label}`} side="sell" line={line} />
+                ))}
+                {day.buys.map((line) => (
+                  <ScheduleRow key={`buy-${day.date}-${line.ticker}-${line.label}`} side="buy" line={line} />
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+    </section>
+  );
+}
+
+function ScheduleRow({ side, line }: { side: "sell" | "buy"; line: PickScheduleLine }) {
+  return (
+    <li className="flex items-baseline justify-between gap-3 border-b border-[#f2f4f6] py-2.5 last:border-b-0">
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className={`shrink-0 text-[12px] font-bold ${side === "sell" ? "text-[#f04452]" : "text-[#3182f6]"}`}>
+          {side === "sell" ? "매도" : "매수"}
+        </span>
+        <span className="min-w-0 truncate text-[14px] font-bold text-[#191f28]">{line.name}</span>
+        {line.ticker ? <span className="shrink-0 text-[12px] font-medium text-[#8b95a1]">{line.ticker}</span> : null}
+      </span>
+      <span className="shrink-0 text-[13px] font-semibold text-[#4e5968]">{formatWon(line.amountKrw)}</span>
+    </li>
+  );
+}
+
+function itemKey(rows: PickItem[]): string {
+  return rows.map((item) => `${item.sleeve}:${item.ticker}`).join("|");
 }
 
 function BuyCard({ buy, items }: { buy: PickBuy; items: PickItem[] }) {

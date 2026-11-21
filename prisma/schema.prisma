@@ -23,8 +23,8 @@ model User {
   lastLoginAt  DateTime?
   /// 관리자 승인. 꺼져 있으면 가입은 되어 있어도 로그인할 수 없다. 새 회원은 꺼짐.
   approved     Boolean     @default(false)
-  /// 추천 종목 모델. spark 또는 claude. 관리자가 사용자마다 정하고, Claude 비용은 관리자 키로 낸다.
-  pickEngine   String      @default("spark")
+  /// 추천 종목 모델. Claude가 기본이다.
+  pickEngine   String      @default("claude")
   /// 추천종목 버튼. 꺼져 있으면 실행하지 않는다. 새 회원은 꺼짐.
   pickEnabled  Boolean     @default(false)
   /// Ai-종목추천을 새로 받을 수 있는 횟수. 저장본을 다시 보는 것은 세지 않는다. 기본은 1이다.

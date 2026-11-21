@@ -40,6 +40,15 @@ export type PickBuy = {
   holdings: PickHolding[];
 };
 
+export type PickSell = {
+  sleeve: Sleeve;
+  label: string;
+  /** 현재 비중 − 목표 비중(%p). 넘치면 양수. */
+  gapPp: number;
+  sellKrw: number;
+  holdings: PickHolding[];
+};
+
 export type PickSnapshot = {
   phase: { id: Phase; name: string };
   buys: PickBuy[];
@@ -65,6 +74,20 @@ export function pickBuys(holdings: HoldingInput[], sleeves: SleeveSnapshot[], us
       holdings: holdingsInSleeve(holdings, sleeve.sleeve, usdKrw),
     }))
     .sort((a, b) => b.buyKrw - a.buyKrw || a.sleeve.localeCompare(b.sleeve));
+}
+
+/** 2%p를 넘어 넘치는 자산군만 남긴다. 줄일 금액은 엔진의 tradeKrw 절대값이다. */
+export function pickSells(holdings: HoldingInput[], sleeves: SleeveSnapshot[], usdKrw: number): PickSell[] {
+  return sleeves
+    .filter((sleeve) => sleeve.status === "over" && sleeve.tradeKrw < 0 && !isFundSleeve(sleeve.sleeve))
+    .map((sleeve) => ({
+      sleeve: sleeve.sleeve,
+      label: SLEEVE_LABEL[sleeve.sleeve],
+      gapPp: round1(sleeve.gapPp),
+      sellKrw: Math.abs(sleeve.tradeKrw),
+      holdings: holdingsInSleeve(holdings, sleeve.sleeve, usdKrw),
+    }))
+    .sort((a, b) => b.sellKrw - a.sellKrw || a.sleeve.localeCompare(b.sleeve));
 }
 
 function holdingsInSleeve(holdings: HoldingInput[], sleeve: Sleeve, usdKrw: number): PickHolding[] {

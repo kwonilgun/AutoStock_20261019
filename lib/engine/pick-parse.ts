@@ -73,15 +73,19 @@ export type StoredPick = {
   engine: PickEngine;
   /** 이미 받은 추천 이유. 다시 받기로 종목을 새로 쓰면 비운다. */
   reason?: string | null;
+  /** 이미 받은 향후 매매 계획. 다시 받기로 종목을 새로 쓰면 비운다. */
+  plan?: string | null;
 };
 
 export function serializeStoredPick(body: StoredPick): string {
   const reason = readStoredReason(body.reason);
+  const plan = readStoredReason(body.plan);
   const stored = {
     snapshot: body.snapshot,
     items: body.items,
     engine: body.engine,
     ...(reason ? { reason } : {}),
+    ...(plan ? { plan } : {}),
   };
   return JSON.stringify(stored);
 }
@@ -106,6 +110,7 @@ export function parseStoredPick(raw: string): StoredPick | null {
     items,
     engine: parsePickEngine(typeof rawEngine === "string" ? rawEngine : undefined),
     reason: readStoredReason((value as { reason?: unknown }).reason),
+    plan: readStoredReason((value as { plan?: unknown }).plan),
   };
 }
 
