@@ -10,8 +10,8 @@ export class SecretBoxError extends Error {
 }
 
 function secretKey(): Buffer {
-  const secret = process.env.ADVICE_KEY_SECRET?.trim();
-  if (!secret) throw new SecretBoxError("ADVICE_KEY_SECRET가 없습니다.");
+  const secret = process.env.ADVICE_CLAUDE_KEY_SECRET?.trim();
+  if (!secret) throw new SecretBoxError("ADVICE_CLAUDE_KEY_SECRET가 없습니다.");
   return scryptSync(secret, SALT, 32);
 }
 

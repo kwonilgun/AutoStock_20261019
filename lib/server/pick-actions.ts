@@ -217,8 +217,8 @@ async function runClaudePick(refresh: boolean): Promise<PickResult> {
   if (!prep.ok || prep.kind !== "prompt") return { ok: false, message: "추천 종목을 받지 못했습니다." };
   const credential = await readPickClaudeCredential();
   if (!credential) {
-    console.log(pickLogText({ step: "claude", refresh, ok: false, kind: "unconfigured" }));
-    return { ok: false, message: "추천 종목용 Claude가 아직 설정되지 않았습니다." };
+    console.log(pickLogText({ step: "claude", refresh, ok: true, kind: "fallback-spark" }));
+    return runSparkPick(refresh);
   }
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: "추천 종목을 받지 못했습니다." };
@@ -241,7 +241,7 @@ async function runClaudePick(refresh: boolean): Promise<PickResult> {
 
 export type PickReasonResult = { ok: true; text: string } | { ok: false; message: string };
 
-/** 화면에 저장된 추천과 괴리를 Claude에게 물어 이유를 받는다. 질문은 서버가 만든다. */
+/** 화면에 저장된 추천과 괴리로 이유를 받는다. Claude 키가 없으면 Spark에 묻는다. */
 export async function requestPickReason(): Promise<PickReasonResult> {
   try {
     const user = await getCurrentUser();
@@ -263,11 +263,12 @@ export async function requestPickReason(): Promise<PickReasonResult> {
       return { ok: true, text: cached.reason };
     }
     const credential = await readPickClaudeCredential();
-    if (!credential) {
+    const spark = credential ? null : readSparkConfig();
+    if (!credential && !spark) {
       console.log(pickLogText({ step: "reason", ok: false, kind: "unconfigured" }));
       return { ok: false, message: "추천 종목용 Claude가 아직 설정되지 않았습니다." };
     }
-    const model = memberModelName("anthropic");
+    const model = credential ? memberModelName("anthropic") : spark!.model;
     console.log(
       pickLogText({
         step: "reason",
@@ -278,14 +279,16 @@ export async function requestPickReason(): Promise<PickReasonResult> {
         sleeves: cached.snapshot.buys.map((buy) => buy.sleeve),
       }),
     );
-    const raw = await askClaude(
-      credential.apiKey,
-      credential.workspaceId,
-      model,
-      PICK_REASON_SYSTEM_PROMPT,
-      pickReasonUserPrompt(cached.snapshot, cached.items),
-      "pick-reason",
-    );
+    const raw = credential
+      ? await askClaude(
+          credential.apiKey,
+          credential.workspaceId,
+          model,
+          PICK_REASON_SYSTEM_PROMPT,
+          pickReasonUserPrompt(cached.snapshot, cached.items),
+          "pick-reason",
+        )
+      : await askSpark(spark!, PICK_REASON_SYSTEM_PROMPT, pickReasonUserPrompt(cached.snapshot, cached.items), "pick-reason");
     const text = parsePickReason(raw);
     console.log(
       pickLogText({

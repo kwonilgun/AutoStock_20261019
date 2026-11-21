@@ -206,12 +206,12 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
                 {reasonPending ? "이유를 받는 중" : "추천 이유"}
               </button>
               <p className="mt-3 text-[13px] leading-5 text-[#8b95a1]">
-                이번 괴리와 위 종목을 Claude에게 물어, 이렇게 추천한 이유를 받습니다. 받은 이유는 저장됩니다.
+                이번 괴리와 위 종목으로 이렇게 추천한 이유를 받습니다. 받은 이유는 저장됩니다.
               </p>
               {reasonError ? <p className="mt-3 text-[13px] font-medium text-[#f04452]">{reasonError}</p> : null}
               {reasonPending ? (
                 <p className="mt-4 text-[14px] text-[#6b7684]" aria-live="polite">
-                  Claude에게 이유를 묻고 있습니다.
+                  추천 이유를 묻고 있습니다.
                 </p>
               ) : null}
             </>

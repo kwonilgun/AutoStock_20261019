@@ -17,3 +17,15 @@ export function parsePickEngine(value: string | null | undefined): PickEngine {
 export function assignedPickEngine(value: string | null | undefined): PickEngine {
   return value === "claude" ? "claude" : "spark";
 }
+
+/** 화면에 보여줄 저장본. Claude 키가 없으면 Claude 배정이어도 Spark 저장본을 그대로 보여 준다. */
+export function pickVisibleCache<T extends { engine: PickEngine }>(
+  saved: T | null,
+  engine: PickEngine,
+  claudeReady: boolean,
+): T | null {
+  if (!saved) return null;
+  if (saved.engine === engine) return saved;
+  if (engine === "claude" && !claudeReady && saved.engine === "spark") return saved;
+  return null;
+}

@@ -68,9 +68,10 @@ model PickCache {
   updatedAt DateTime @updatedAt
 }
 
-/// 추천 종목 Claude. 관리자가 키와 워크스페이스를 넣고, Claude로 지정된 사용자가 같이 쓴다. 행은 id "global" 하나뿐이다.
+/// 추천 종목 Claude. 관리자가 저장한 API 키와 워크스페이스. 서버가 켜질 때 이 행을 읽는다. 행은 id "global" 하나뿐이다.
 model PickClaudeSetting {
   id          String   @id @default("global")
+  /// 관리자가 저장한 Claude API 키.
   cipher      String   @default("")
   last4       String   @default("")
   workspaceId String   @default("")

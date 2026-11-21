@@ -16,7 +16,6 @@ import { getRecommendationSetting, saveRecommendationSetting } from "@/lib/serve
 import { PICK_ENGINES } from "@/lib/pick-engine";
 import { hashPassword } from "@/lib/server/password";
 import { readPickClaudeAdmin, savePickClaudeSetting } from "@/lib/server/pick-llm";
-import { SecretBoxError } from "@/lib/server/secret-box";
 import { getCurrentUser } from "@/lib/server/session";
 import { forgetViews } from "@/lib/server/view-cache";
 
@@ -309,7 +308,7 @@ export async function adminSetUserPickEngine(userId: string, engine: string): Pr
   }
 }
 
-/** 추천 종목 Claude 키와 워크스페이스. 키가 비어 있으면 이미 저장된 키를 유지한다. */
+/** 추천 종목 Claude 키와 워크스페이스를 관리자 데이터베이스에 저장한다. 키가 비어 있으면 이미 저장된 키를 유지한다. */
 export async function adminSavePickClaude(apiKey: string, workspaceId: string): Promise<AdminResult> {
   try {
     const admin = await requireAdmin();
@@ -321,9 +320,8 @@ export async function adminSavePickClaude(apiKey: string, workspaceId: string): 
     if (!key && !current.configured) return { ok: false, message: "Claude API 키를 입력해 주세요." };
     await savePickClaudeSetting({ apiKey: key, workspaceId: workspace, updatedBy: admin.id });
     revalidatePath("/admin/users");
-    return { ok: true, message: "Claude 키를 저장했습니다. 호출 비용은 이 키로 청구됩니다." };
+    return { ok: true, message: "Claude 키를 저장했습니다. 서버를 다시 켜면 이 값을 읽어 사용합니다." };
   } catch (error) {
-    if (error instanceof SecretBoxError) return { ok: false, message: "서버에 키 암호화 설정이 없습니다." };
     return fail(error);
   }
 }

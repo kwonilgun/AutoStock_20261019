@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { adminSavePickClaude } from "@/lib/server/admin-actions";
 
 export function PickClaudeForm({
@@ -17,6 +17,8 @@ export function PickClaudeForm({
   const [apiKey, setApiKey] = useState("");
   const [workspace, setWorkspace] = useState(workspaceId);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => setWorkspace(workspaceId), [workspaceId]);
 
   function save() {
     setMessage(null);
@@ -38,8 +40,8 @@ export function PickClaudeForm({
       <p className="text-[13px] font-medium text-[#8b95a1]">추천 종목 Claude</p>
       <h2 className="mt-1 text-[17px] font-bold text-[#191f28]">관리자 키</h2>
       <p className="mt-2 text-[13px] leading-5 text-[#8b95a1]">
-        추천 종목, 보유 가져오기, 수익 가져오기는 이 키와 워크스페이스로 Claude를 호출합니다. 키는 서버에만 두고 사용자에게
-        보여 주지 않습니다. 호출 비용은 이 키의 계정으로 청구됩니다.
+        추천 종목, 보유 가져오기, 수익 가져오기는 여기에 저장한 키와 워크스페이스로 Claude를 호출합니다. 키는 관리자
+        데이터베이스에만 두고 사용자에게 보여 주지 않습니다. 서버가 켜질 때 이 값을 읽어 사용합니다.
       </p>
       {configured && !replacing ? (
         <div className="mt-4">

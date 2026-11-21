@@ -1,8 +1,9 @@
 import { unstable_rethrow } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { parseStoredPick, serializeStoredPick, type StoredPick } from "@/lib/engine/pick-parse";
+import { pickVisibleCache } from "@/lib/pick-engine";
 import { pickErrorDetail, pickLogText } from "@/lib/pick-log";
-import { readUserPickEngine } from "@/lib/server/pick-llm";
+import { readPickClaudeCredential, readUserPickEngine } from "@/lib/server/pick-llm";
 import { getCurrentUser } from "@/lib/server/session";
 
 export type SavedPick = StoredPick & { cachedAt: string };
@@ -50,7 +51,8 @@ export async function loadSavedPick(): Promise<SavedPick | null> {
     }
     const engine = await readUserPickEngine(user.id);
     const saved = await readPickCache(user.id);
-    const matched = saved?.engine === engine ? saved : null;
+    const claudeReady = engine === "claude" ? Boolean(await readPickClaudeCredential()) : false;
+    const matched = pickVisibleCache(saved, engine, claudeReady);
     console.log(
       pickLogText({
         step: "page",

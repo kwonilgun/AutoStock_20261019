@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pickAddSeed, pickBuys, type PickBuy, type PickSnapshot } from "./pick-context";
-import { assignedPickEngine } from "@/lib/pick-engine";
+import { assignedPickEngine, pickVisibleCache } from "@/lib/pick-engine";
 import { parsePickReason, parsePickReply, parseStoredPick, serializeStoredPick } from "./pick-parse";
 import { PICK_REASON_SYSTEM_PROMPT, PICK_SYSTEM_PROMPT, pickReasonUserPrompt } from "./pick-prompt";
 import type { HoldingInput, Sleeve, SleeveSnapshot } from "./types";
@@ -136,6 +136,15 @@ describe("추천 종목 응답", () => {
     expect(assignedPickEngine("spark")).toBe("spark");
     expect(assignedPickEngine(undefined)).toBe("spark");
     expect(assignedPickEngine("openai")).toBe("spark");
+  });
+
+  it("Claude 키가 없으면 Spark로 받은 저장본을 보여 준다", () => {
+    const spark = { engine: "spark" as const, items: 1 };
+    const claude = { engine: "claude" as const, items: 2 };
+    expect(pickVisibleCache(spark, "claude", false)).toBe(spark);
+    expect(pickVisibleCache(spark, "claude", true)).toBeNull();
+    expect(pickVisibleCache(claude, "claude", false)).toBe(claude);
+    expect(pickVisibleCache(spark, "spark", false)).toBe(spark);
   });
 
   it("프롬프트는 살 금액을 고치지 말라고 잠근다", () => {
