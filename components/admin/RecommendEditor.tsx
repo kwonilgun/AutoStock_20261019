@@ -27,7 +27,7 @@ export function RecommendEditor({ items }: { items: RecommendItems }) {
     <section className="rounded-[22px] bg-white px-5 py-5">
       <h2 className="text-[17px] font-bold text-[#191f28]">추천 종목</h2>
       <p className="mt-1 text-[13px] leading-5 text-[#8b95a1]">
-        저장하면 홈 화면의 추천 종목 카드에 바로 보입니다. 분류마다 {RECOMMEND_MAX_ITEMS}개까지 넣을 수 있습니다.
+        저장하면 추천 종목 페이지에 바로 보입니다. 분류마다 {RECOMMEND_MAX_ITEMS}개까지 넣을 수 있습니다.
         현금 ETF는 자산에 넣을 때 종목을 유지한 채 현금과 같게 셉니다.
       </p>
       <div className="mt-4 grid grid-cols-3 gap-1.5">

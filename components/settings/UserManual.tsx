@@ -217,14 +217,15 @@ export function UserManual() {
             <b>괴리율</b>에서 과다와 부족 개수를 봅니다. <b>자세히</b>를 누르면 괴리 화면으로 갑니다.
           </li>
           <li>
-            달걀 그림에서 <b>지금 국면</b>을 봅니다. 국면은 관리자가 지정합니다. <b>왜 이 국면인가요</b>는 관리자가 적은
-            설명이 펼쳐집니다. <b>그래서 비중은</b>과 성향별 설명도 같이 접혀 있습니다.
+            달걀 그림에서 <b>지금 국면</b>을 봅니다. 국면은 관리자가 지정합니다.
           </li>
           <li>달걀 아래 시장 칸에서 연준 기준금리와 원달러 환율을 확인합니다.</li>
           <li>
             <b>이번 달 목표 비중</b>을 눌러 주식·채권·자산·현금 그룹을 펼칩니다.
           </li>
-          <li>더 아래로 내리면 추천 종목과 분석 리포트가 있습니다.</li>
+          <li>
+            더 아래 <b>분석 리포트</b>는 날짜별 글을 펼쳐 읽는 보관함입니다. 제목을 누르면 본문이 열립니다.
+          </li>
         </ol>
         <div className={box}>
           <b>달걀의 여섯 칸.</b> 왼쪽 A1~A3은 올라가는 쪽, 오른쪽 B1~B3은 내려가는 쪽입니다. 이번 달 칸의 목표 비중이 모든
@@ -271,29 +272,8 @@ export function UserManual() {
         </div>
       </section>
 
-      <section className={card} id="recommend">
-        <Step n={4} title="추천 종목을 참고해 자산에 넣습니다" />
-        <p className={body}>
-          홈에서 <b>추천 종목</b>을 누르면 미국주식, 한국주식, 채권 ETF, 금 ETF, 부동산 ETF, 현금 ETF 목록이
-          펼쳐집니다. 현금 ETF는 종목을 유지한 채 현금으로 셉니다. 관리자가 올려 둔 참고 자료입니다. 수익을 보장하지 않습니다.
-        </p>
-        <ol className={list}>
-          <li>보고 싶은 종목을 누릅니다.</li>
-          <li>
-            <b>자산에 추가할까요?</b>가 뜨면 내용을 확인하고 <b>확인</b>을 누릅니다.
-          </li>
-          <li>자산 화면의 추가 창에 티커와 자산군이 미리 채워집니다.</li>
-          <li>
-            실제로 산 수량과 1주 평균금액을 넣은 뒤 <b>추가</b>를 누릅니다.
-          </li>
-        </ol>
-        <p className={body}>
-          홈 아래 <b>분석 리포트</b>는 날짜별 글을 펼쳐 읽는 보관함입니다. 제목을 누르면 본문이 열립니다.
-        </p>
-      </section>
-
       <section className={card} id="income">
-        <Step n={5} title="배당·이자·판매 수익을 기록합니다" />
+        <Step n={4} title="배당·이자·판매 수익을 기록합니다" />
         <p className={body}>
           아래 메뉴의 <b>수익</b>을 엽니다. 여기서 넣은 금액은 총자산에 또 더하지 않습니다. 이미 자산에 들어온 돈 중에서{" "}
           <b>수익인 부분만</b> 적어, 성과 화면의 수익률에 반영합니다. 위쪽 <b>일별 / 월별 / 년도별</b>을 바꿔 배당·이자·판매
@@ -333,7 +313,7 @@ export function UserManual() {
       </section>
 
       <section className={card} id="performance">
-        <Step n={6} title="성과에서 수익률을 봅니다" />
+        <Step n={5} title="성과에서 수익률을 봅니다" />
         <p className={body}>아래 메뉴의 <b>성과</b>를 엽니다. 날짜가 쌓이면 그래프와 수익률이 채워집니다.</p>
         <ol className={list}>
           <li>맨 위 큰 숫자는 선택한 시점의 총자산입니다.</li>
@@ -362,7 +342,7 @@ export function UserManual() {
       </section>
 
       <section className={card} id="settings-guide">
-        <Step n={7} title="설정에서 계정과 비밀번호를 관리합니다" />
+        <Step n={6} title="설정에서 계정과 비밀번호를 관리합니다" />
         <p className={body}>오른쪽 위 톱니바퀴를 누르면 설정입니다. 그 왼쪽 로그아웃을 누르면 이 기기에서 나갑니다.</p>
         <ul className={`${list} list-disc`}>
           <li>로그인한 이메일을 확인할 수 있습니다.</li>

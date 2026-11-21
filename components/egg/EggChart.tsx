@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { PhaseStory, PhaseWhy } from "@/components/egg/PhaseStory";
 import { RateBoxes, type MarketRateView } from "@/components/home/MarketRates";
 import { PHASE_META } from "@/lib/engine/config";
-import { defaultWhyNote, type PhaseWhyNote } from "@/lib/engine/phase-why";
 import { PHASES, type Phase } from "@/lib/engine/types";
 import { adminSetPhase } from "@/lib/server/admin-actions";
 
@@ -21,12 +19,10 @@ export function EggChart({
   phase,
   editable = false,
   rates = null,
-  why = null,
 }: {
   phase: Phase;
   editable?: boolean;
   rates?: MarketRateView | null;
-  why?: PhaseWhyNote | null;
 }) {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -79,10 +75,6 @@ export function EggChart({
       </p> */}
 
       {/* <h2 className="mt-1 text-[22px] font-bold leading-snug tracking-tight text-[#191f28]">{meta.headline}</h2> */}
-      <div className="mt-2">
-        <PhaseWhy note={why ?? defaultWhyNote(phase)} />
-        <PhaseStory phase={phase} />
-      </div>
 
       {rates ? <RateBoxes rates={rates} /> : null}
       {pending ? <p className="mt-3 text-[13px] text-[#8b95a1]">국면을 바꾸는 중입니다</p> : null}

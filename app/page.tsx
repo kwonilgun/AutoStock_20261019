@@ -4,7 +4,6 @@ import { ViewFrame } from "@/components/frame/ViewFrame";
 import { AssetGuide } from "@/components/home/AssetGuide";
 import { formatFedDate, formatFedTarget, formatFx } from "@/components/home/MarketRates";
 import { SeoulClock } from "@/components/home/SeoulClock";
-import { RecommendFold } from "@/components/home/RecommendFold";
 import { WeightFolders } from "@/components/home/WeightFolders";
 import { ReportArchive } from "@/components/recommend/ReportArchive";
 import { gapViews } from "@/lib/engine/gap";
@@ -12,10 +11,8 @@ import { alignCumulative, buildAssetSeries, heldPositions } from "@/lib/engine/h
 import type { Sleeve, SleeveSnapshot } from "@/lib/engine/types";
 import { formatNumber } from "@/lib/format";
 import type { AppView } from "@/lib/server/portfolio";
-import { RECOMMEND_CATEGORIES } from "@/lib/recommendations";
 import { listAnalysisReports } from "@/lib/server/analysis-reports";
 import { latestFedTarget } from "@/lib/server/fed-rate";
-import { getRecommendationSetting } from "@/lib/server/recommendation-setting";
 
 const WEIGHT_GROUPS: { label: string; members: { sleeve: Sleeve; label: string }[] }[] = [
   {
@@ -71,17 +68,7 @@ function cumulativeProfit(view: AppView): number | null {
 }
 
 export default async function HomePage() {
-  const [recommendation, reports, fed] = await Promise.all([
-    getRecommendationSetting(),
-    listAnalysisReports(),
-    latestFedTarget(),
-  ]);
-  const recommendCount = RECOMMEND_CATEGORIES.reduce((sum, category) => sum + recommendation.items[category].length, 0);
-  const updated = recommendation.updatedAt
-    ? new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Seoul" }).format(
-        recommendation.updatedAt,
-      )
-    : null;
+  const [reports, fed] = await Promise.all([listAnalysisReports(), latestFedTarget()]);
 
   return (
     <ViewFrame refreshMarks>
@@ -124,7 +111,6 @@ export default async function HomePage() {
 
             <EggChart
               phase={view.phase}
-              why={view.phaseWhy}
               rates={{
                 fed: fed ? formatFedTarget(fed.low, fed.high) : "—",
                 fedWhen: fed ? formatFedDate(fed.date) : "시세 연동 전",
@@ -135,7 +121,6 @@ export default async function HomePage() {
 
             <WeightFolders phase={view.phase} groups={groups} />
 
-            <RecommendFold items={recommendation.items} count={recommendCount} updated={updated} />
             <ReportArchive reports={reports} />
             <p className="px-1 text-[12px] leading-5 text-[#8b95a1]">
               추천은 투자 판단을 돕기 위한 참고 자료이며 수익을 보장하지 않습니다.

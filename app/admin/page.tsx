@@ -10,7 +10,7 @@ export default async function AdminPage() {
 
   return (
     <AdminShell subtitle={`지금 국면 ${setting.phase} · 마지막 변경 ${formatUpdatedAt(setting.updatedAt)}`}>
-      <EggChart phase={setting.phase} editable why={setting.whys[setting.phase]} />
+      <EggChart phase={setting.phase} editable />
       <PhaseWhyEditor notes={setting.whys} customized={setting.whyCustomized} activePhase={setting.phase} />
       <WeightEditor weights={setting.weights} customized={setting.customized} activePhase={setting.phase} />
     </AdminShell>
