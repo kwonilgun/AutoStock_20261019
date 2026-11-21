@@ -1,13 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { PickPrefsForm } from "@/components/recommend/PickPrefsForm";
 import { formatPp, formatWon } from "@/lib/format";
 import type { PickBuy, PickSnapshot } from "@/lib/engine/pick-context";
 import type { PickItem } from "@/lib/engine/pick-parse";
-import { formatScheduleDate, type PickScheduleDay, type PickScheduleLine } from "@/lib/engine/pick-schedule";
+import { pickPrefsKey, pickPrefsSummary, type PickPrefs } from "@/lib/engine/pick-prefs";
+import {
+  formatScheduleWeek,
+  PICK_PLAN_WEEKS,
+  type PickPlanWeeks,
+  type PickScheduleLine,
+  type PickScheduleWeek,
+} from "@/lib/engine/pick-schedule";
 import { PICK_LIMIT_MESSAGE, type PickQuota } from "@/lib/pick-engine";
 import { pickLogText } from "@/lib/pick-log";
 import { requestPick, requestPickPlan, requestPickReason } from "@/lib/server/pick-actions";
+import { savePickPlanWeeks } from "@/lib/server/pick-prefs-actions";
 import type { SavedPick } from "@/lib/server/pick-cache";
 import { logPick } from "@/lib/server/pick-log";
 
@@ -32,9 +42,20 @@ function savedLabel(cachedAt: string | null): string | null {
   return `저장된 추천 · ${text}`;
 }
 
-export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota: PickQuota }) {
+export function PickPanel({
+  initial,
+  quota,
+  prefs: initialPrefs,
+  planWeeks,
+}: {
+  initial: SavedPick | null;
+  quota: PickQuota;
+  prefs: PickPrefs | null;
+  planWeeks: PickPlanWeeks;
+}) {
+  const [prefs, setPrefs] = useState(initialPrefs);
   const blockedAtStart = !initial && quota.used >= quota.limit;
-  const [pending, setPending] = useState(!initial && !blockedAtStart);
+  const [pending, setPending] = useState(prefs != null && !initial && !blockedAtStart);
   const [error, setError] = useState<string | null>(blockedAtStart ? PICK_LIMIT_MESSAGE : null);
   const [used, setUsed] = useState(quota.used);
   const [limit, setLimit] = useState(quota.limit);
@@ -45,7 +66,9 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
   const [reason, setReason] = useState<string | null>(initial?.reason ?? null);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [reasonPending, setReasonPending] = useState(false);
-  const [days, setDays] = useState<PickScheduleDay[] | null>(null);
+  const [span, setSpan] = useState<PickPlanWeeks>(planWeeks);
+  const spanRequest = useRef(0);
+  const [weeks, setWeeks] = useState<PickScheduleWeek[] | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [planPending, setPlanPending] = useState(false);
   const requestId = useRef(0);
@@ -63,7 +86,7 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
     setReason(null);
     setReasonError(null);
     setReasonPending(false);
-    setDays(null);
+    setWeeks(null);
     setPlanError(null);
     setPlanPending(false);
     setPending(true);
@@ -119,22 +142,25 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
     setReasonPending(false);
   }, []);
 
-  const askPlan = useCallback(async () => {
+  const askPlan = useCallback(async (next: PickPlanWeeks) => {
     const id = planId.current + 1;
     planId.current = id;
     setPlanError(null);
     setPlanPending(true);
-    const result = await requestPickPlan();
+    const result = await requestPickPlan(next);
     if (planId.current !== id) return;
     reportPick({
       step: "plan",
       ok: result.ok,
       kind: result.ok ? "schedule" : "error",
       message: result.ok ? "" : result.message,
-      days: result.ok ? result.days.length : 0,
+      days: result.ok ? result.weeks.length : 0,
     });
     if (!result.ok) setPlanError(result.message);
-    else setDays(result.days);
+    else {
+      setSpan(result.span);
+      setWeeks(result.weeks);
+    }
     setPlanPending(false);
   }, []);
 
@@ -144,6 +170,7 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
   }, [quota.used, quota.limit]);
 
   useEffect(() => {
+    if (!prefs) return;
     if (initial) {
       reportPick({
         step: "panel",
@@ -160,43 +187,74 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
     return () => {
       requestId.current += 1;
     };
-  }, [initial, load, quota.used, quota.limit]);
+  }, [prefs, initial, load, quota.used, quota.limit]);
 
   const listKey = itemKey(items);
   useEffect(() => {
     if (pending || items.length === 0) return;
-    if (planAsked.current === listKey) return;
-    planAsked.current = listKey;
-    void askPlan();
-  }, [pending, items.length, listKey, askPlan]);
+    const key = `${listKey}:${span}`;
+    if (planAsked.current === key) return;
+    planAsked.current = key;
+    void askPlan(span);
+  }, [pending, items.length, listKey, span, askPlan]);
 
   const buys = snapshot?.buys ?? [];
   const saved = savedLabel(cachedAt);
   const left = Math.max(0, limit - used);
   const exhausted = used >= limit;
+  const prefsDiffer = prefs != null && items.length > 0 && pickPrefsKey(snapshot?.prefs) !== pickPrefsKey(prefs);
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
+      {!prefs ? (
+        <PickPrefsForm
+          initial={null}
+          planWeeks={span}
+          intent={initial ? "edit" : "start"}
+          onSaved={(next, savedWeeks) => {
+            setPrefs(next);
+            setSpan(savedWeeks);
+            if (!initial && quota.used < quota.limit) setPending(true);
+          }}
+        />
+      ) : null}
+
+      {prefs || initial ? (
+      <>
       <section className="rounded-[22px] bg-white px-5 pt-6 pb-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[15px] font-medium text-[#4e5968]">추천종목</p>
           <button
             type="button"
             onClick={() => void load(true)}
-            disabled={pending || exhausted}
+            disabled={pending || exhausted || !prefs}
             className="rounded-full bg-[#3182f6] px-3 py-1.5 text-[13px] font-semibold text-white disabled:opacity-60"
           >
             {pending ? "받는 중" : exhausted ? "횟수 소진" : "다시 받기"}
           </button>
         </div>
         <p className="mt-2 text-[14px] leading-5 text-[#6b7684]">
-          차이가 2%포인트를 넘어 부족한 자산군만 고릅니다. 관리자가 지정한 모델의 저장본이 있으면 다시 부르지 않습니다.
-          다시 받기를 누르면 지금 괴리로 새로 받고, 저장된 추천 이유는 지웁니다. 향후 계획은 그 종목으로 다시 나눕니다.
+          차이가 2%포인트를 넘어 부족한 자산군만 고릅니다. 종목은 추천 기준에 맞춰 고르고, 살 자산군과 금액은 바꾸지 않습니다. 관리자가 지정한 모델의 저장본이 있으면 다시 부르지 않습니다.
+          다시 받기를 누르면 지금 괴리로 새로 받고, 저장된 추천 이유는 지웁니다. 향후 계획은 고른 주 수에 맞춰 그 종목으로 다시 나눕니다.
           주문은 넣지 않습니다. 종목을 새로 받을 때마다 횟수가 1 줄어듭니다.
         </p>
         <p className="mt-2 text-[12px] font-medium text-[#8b95a1]">
           남은 횟수 {left}회 · 제한 {limit}회
         </p>
+        {prefs ? (
+          <p className="mt-2 text-[13px] font-medium leading-5 text-[#4e5968]">
+            {pickPrefsSummary(prefs)}
+            {" · "}
+            <Link href="/settings#pick-prefs" className="font-semibold text-[#3182f6]">
+              기준 바꾸기
+            </Link>
+          </p>
+        ) : null}
+        {prefsDiffer ? (
+          <p className="mt-2 text-[13px] font-medium leading-5 text-[#3182f6]">
+            추천 기준이 바뀌었습니다. 다시 받기를 누르면 새 기준으로 받습니다.
+          </p>
+        ) : null}
         {snapshot ? <p className="mt-2 text-[12px] font-medium text-[#8b95a1]">{snapshot.phase.id} {snapshot.phase.name} 국면</p> : null}
         {saved ? <p className="mt-1 text-[12px] font-medium text-[#8b95a1]">{saved}</p> : null}
         {error ? <p className="mt-2 text-[13px] font-medium text-[#f04452]">{error}</p> : null}
@@ -257,7 +315,29 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
         </section>
       ) : null}
 
-      {!pending && items.length > 0 ? <ScheduleCard days={days} pending={planPending} error={planError} onRetry={() => void askPlan()} /> : null}
+      {!pending && items.length > 0 ? (
+        <ScheduleCard
+          weeks={weeks}
+          span={span}
+          pending={planPending}
+          error={planError}
+          onSpan={(next) => {
+            if (next === span) return;
+            const id = spanRequest.current + 1;
+            spanRequest.current = id;
+            setWeeks(null);
+            setPlanError(null);
+            setSpan(next);
+            void savePickPlanWeeks(next).then((result) => {
+              if (spanRequest.current !== id) return;
+              if (!result.ok) setPlanError(result.message);
+            });
+          }}
+          onRetry={() => void askPlan(span)}
+        />
+      ) : null}
+      </>
+      ) : null}
 
       <p className="px-1 text-[12px] leading-5 text-[#8b95a1]">추천은 투자 판단을 돕기 위한 참고 자료이며 수익을 보장하지 않습니다.</p>
     </div>
@@ -265,42 +345,68 @@ export function PickPanel({ initial, quota }: { initial: SavedPick | null; quota
 }
 
 function ScheduleCard({
-  days,
+  weeks,
+  span,
   pending,
   error,
+  onSpan,
   onRetry,
 }: {
-  days: PickScheduleDay[] | null;
+  weeks: PickScheduleWeek[] | null;
+  span: PickPlanWeeks;
   pending: boolean;
   error: string | null;
+  onSpan: (next: PickPlanWeeks) => void;
   onRetry: () => void;
 }) {
   return (
     <section className="rounded-[22px] bg-white px-5 py-5">
       <h2 className="text-[15px] font-bold text-[#191f28]">향후 추진 계획</h2>
+      <div className="mt-3 flex gap-2" role="group" aria-label="추진 기간">
+        {PICK_PLAN_WEEKS.map((value) => {
+          const on = span === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onSpan(value)}
+              className={`rounded-full border px-3 py-1.5 text-[13px] font-semibold ${
+                on ? "border-[#3182f6] bg-[#e8f3ff] text-[#1b64da]" : "border-[#e5e8eb] bg-white text-[#4e5968]"
+              }`}
+            >
+              {value}주
+            </button>
+          );
+        })}
+      </div>
       <p className="mt-2 text-[13px] leading-5 text-[#8b95a1]">
-        다음 4거래일에 금액을 똑같이 나눕니다. 주말은 건너뛰고, 휴장일은 빼지 않습니다. 주문은 넣지 않습니다.
+        앞주에는 넘친 자산을 줄이고, 그다음 주에는 부족한 자산을 삽니다. 한 주에는 금액이 큰 자산을 추천 첫 종목으로 사고, 나머지 종목은 대신 살 수 있습니다. 10만 원보다 작게 나뉘면 한 주에 모으고, 1주는 나누지 않습니다. 주말은 건너뛰고 휴장일은 빼지 않습니다. 주문은 넣지 않습니다.
       </p>
-      {pending && !days ? <p className="mt-4 text-[14px] text-[#6b7684]">일정을 나누고 있습니다.</p> : null}
+      {pending && !weeks ? <p className="mt-4 text-[14px] text-[#6b7684]">일정을 나누고 있습니다.</p> : null}
       {error ? <p className="mt-3 text-[13px] font-medium text-[#f04452]">{error}</p> : null}
       {error ? (
         <button type="button" onClick={onRetry} disabled={pending} className="mt-3 h-11 w-full rounded-2xl bg-[#3182f6] text-[15px] font-bold text-white disabled:opacity-60">
           다시 계산
         </button>
       ) : null}
-      {days ? (
+      {weeks ? (
         <ol className="mt-4 flex flex-col gap-4">
-          {days.map((day) => (
-            <li key={day.date}>
-              <p className="text-[13px] font-bold text-[#191f28]">{formatScheduleDate(day.date)}</p>
-              <ul className="mt-1">
-                {day.sells.map((line) => (
-                  <ScheduleRow key={`sell-${day.date}-${line.ticker}-${line.label}`} side="sell" line={line} />
-                ))}
-                {day.buys.map((line) => (
-                  <ScheduleRow key={`buy-${day.date}-${line.ticker}-${line.label}`} side="buy" line={line} />
-                ))}
-              </ul>
+          {weeks.map((week) => (
+            <li key={week.index}>
+              <p className="text-[13px] font-bold text-[#191f28]">{formatScheduleWeek(week)}</p>
+              {week.sells.length === 0 && week.buys.length === 0 ? (
+                <p className="mt-1 text-[13px] text-[#8b95a1]">이번 주는 금액이 작아 다른 주로 모았습니다.</p>
+              ) : (
+                <ul className="mt-1">
+                  {week.sells.map((line) => (
+                    <ScheduleRow key={`sell-${week.index}-${line.ticker}-${line.label}`} side="sell" line={line} />
+                  ))}
+                  {week.buys.map((line) => (
+                    <ScheduleRow key={`buy-${week.index}-${line.ticker}-${line.label}`} side="buy" line={line} />
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ol>
@@ -311,15 +417,22 @@ function ScheduleCard({
 
 function ScheduleRow({ side, line }: { side: "sell" | "buy"; line: PickScheduleLine }) {
   return (
-    <li className="flex items-baseline justify-between gap-3 border-b border-[#f2f4f6] py-2.5 last:border-b-0">
-      <span className="flex min-w-0 items-baseline gap-2">
-        <span className={`shrink-0 text-[12px] font-bold ${side === "sell" ? "text-[#f04452]" : "text-[#3182f6]"}`}>
-          {side === "sell" ? "매도" : "매수"}
+    <li className="border-b border-[#f2f4f6] py-2.5 last:border-b-0">
+      <span className="flex items-baseline justify-between gap-3">
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className={`shrink-0 text-[12px] font-bold ${side === "sell" ? "text-[#f04452]" : "text-[#3182f6]"}`}>
+            {side === "sell" ? "매도" : "매수"}
+          </span>
+          <span className="min-w-0 truncate text-[14px] font-bold text-[#191f28]">{line.name}</span>
+          {line.ticker ? <span className="shrink-0 text-[12px] font-medium text-[#8b95a1]">{line.ticker}</span> : null}
         </span>
-        <span className="min-w-0 truncate text-[14px] font-bold text-[#191f28]">{line.name}</span>
-        {line.ticker ? <span className="shrink-0 text-[12px] font-medium text-[#8b95a1]">{line.ticker}</span> : null}
+        <span className="shrink-0 text-[13px] font-semibold text-[#4e5968]">{formatWon(line.amountKrw)}</span>
       </span>
-      <span className="shrink-0 text-[13px] font-semibold text-[#4e5968]">{formatWon(line.amountKrw)}</span>
+      {line.alternates && line.alternates.length > 0 ? (
+        <p className="mt-1 text-[12px] leading-5 text-[#8b95a1]">
+          대신 살 수 있는 종목 {line.alternates.map((item) => (item.ticker ? `${item.name} ${item.ticker}` : item.name)).join(", ")}
+        </p>
+      ) : null}
     </li>
   );
 }

@@ -2,6 +2,7 @@ import { classify, normalizeTicker } from "@/lib/engine/classify";
 import { PHASE_META, SLEEVE_LABEL, isFundSleeve } from "@/lib/engine/config";
 import type { Currency, HoldingInput, Phase, RebalanceResult, Sleeve, SleeveSnapshot } from "@/lib/engine/types";
 import { valueKrw } from "@/lib/engine/value";
+import type { PickPrefs } from "@/lib/engine/pick-prefs";
 import type { RecommendAddSeed } from "@/lib/recommendations";
 import { isKrCode } from "@/lib/quotes/symbol";
 
@@ -52,12 +53,21 @@ export type PickSell = {
 export type PickSnapshot = {
   phase: { id: Phase; name: string };
   buys: PickBuy[];
+  /** 이 추천을 고를 때 쓴 기준. 예전 저장본에는 없다. */
+  prefs?: PickPrefs;
 };
 
-export function pickSnapshot(phase: Phase, holdings: HoldingInput[], result: RebalanceResult, usdKrw: number): PickSnapshot {
+export function pickSnapshot(
+  phase: Phase,
+  holdings: HoldingInput[],
+  result: RebalanceResult,
+  usdKrw: number,
+  prefs?: PickPrefs | null,
+): PickSnapshot {
   return {
     phase: { id: phase, name: PHASE_META[phase].name },
     buys: pickBuys(holdings, result.sleeves, usdKrw),
+    ...(prefs ? { prefs } : {}),
   };
 }
 

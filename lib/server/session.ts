@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { investorStyleOf, type InvestorStyle } from "@/lib/engine/investor";
+import { pickPrefsFromRow, type PickPrefs } from "@/lib/engine/pick-prefs";
+import { pickPlanWeeksOf, type PickPlanWeeks } from "@/lib/engine/pick-schedule";
 import { loginAllowed } from "@/lib/server/approval";
 
 const COOKIE = "egg_session";
@@ -16,6 +18,8 @@ export type SessionUser = {
   mustChangePassword: boolean;
   investorStyle: InvestorStyle;
   pickEnabled: boolean;
+  pickPrefs: PickPrefs | null;
+  planWeeks: PickPlanWeeks;
 };
 
 function hashToken(token: string) {
@@ -78,5 +82,14 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
     mustChangePassword: session.user.mustChangePassword,
     investorStyle: investorStyleOf(session.user.investorStyle),
     pickEnabled: session.user.pickEnabled,
+    pickPrefs: pickPrefsFromRow({
+      instrument: session.user.pickInstrument,
+      addTo: session.user.pickAddTo,
+      market: session.user.pickMarket,
+      aim: session.user.pickAim,
+      exclude: session.user.pickExclude,
+      sectors: session.user.pickSectors,
+    }),
+    planWeeks: pickPlanWeeksOf(session.user.pickPlanWeeks),
   };
 });

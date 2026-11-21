@@ -1,14 +1,27 @@
 import Link from "next/link";
+import { PickPrefsForm } from "@/components/recommend/PickPrefsForm";
 import { DeleteAccountRow } from "@/components/settings/DeleteAccountForm";
 import { PasswordSettingRow } from "@/components/settings/SettingsPasswordForm";
+import type { PickPrefs } from "@/lib/engine/pick-prefs";
+import type { PickPlanWeeks } from "@/lib/engine/pick-schedule";
 
-export function AccountSettings({ email }: { email: string }) {
+export function AccountSettings({
+  email,
+  prefs,
+  planWeeks,
+}: {
+  email: string;
+  prefs: PickPrefs | null | undefined;
+  planWeeks: PickPlanWeeks;
+}) {
   return (
     <>
       <section className="rounded-[22px] bg-white px-5 py-5">
         <p className="text-[13px] font-medium text-[#8b95a1]">로그인 계정</p>
         <p className="mt-1 truncate text-[17px] font-bold text-[#191f28]">{email}</p>
       </section>
+
+      {prefs !== undefined ? <PickPrefsForm initial={prefs} planWeeks={planWeeks} intent="edit" /> : null}
 
       <section className="divide-y divide-[#f2f4f6] rounded-[22px] bg-white px-5 py-2">
         <Link href="/settings/manual" className="flex w-full items-center justify-between py-3 text-left">
