@@ -1,5 +1,6 @@
 import { parsePickEngine, type PickEngine } from "@/lib/pick-engine";
 import { PICK_HOLDING_LIMIT, PICK_PER_SLEEVE, cleanPickTicker, type PickBuy, type PickSnapshot } from "./pick-context";
+import { pickPrefsFromRow, type PickPrefs } from "./pick-prefs";
 import { PHASES, SLEEVES, type Phase, type Sleeve } from "./types";
 
 export type PickItem = {
@@ -135,7 +136,27 @@ function readSnapshot(value: unknown): PickSnapshot | null {
     buys.push(buy);
   }
   if (buys.length === 0) return null;
-  return { phase: { id: id as Phase, name }, buys };
+  const prefs = readStoredPrefs((value as { prefs?: unknown }).prefs);
+  return prefs ? { phase: { id: id as Phase, name }, buys, prefs } : { phase: { id: id as Phase, name }, buys };
+}
+
+function readStoredPrefs(value: unknown): PickPrefs | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as { instrument?: unknown; addTo?: unknown; market?: unknown; aim?: unknown; exclude?: unknown; sectors?: unknown };
+  return pickPrefsFromRow({
+    instrument: typeof row.instrument === "string" ? row.instrument : "",
+    addTo: typeof row.addTo === "string" ? row.addTo : "",
+    market: typeof row.market === "string" ? row.market : "",
+    aim: typeof row.aim === "string" ? row.aim : "",
+    exclude: joinStoredList(row.exclude),
+    sectors: joinStoredList(row.sectors),
+  });
+}
+
+function joinStoredList(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (!Array.isArray(value)) return "";
+  return value.filter((item): item is string => typeof item === "string").join(",");
 }
 
 function readBuy(value: unknown): PickBuy | null {

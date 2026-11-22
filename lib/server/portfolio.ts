@@ -14,7 +14,7 @@ import {
 } from "@/lib/engine/history";
 import { buildPerformanceReport, marksFromHoldings, type PerformanceReport } from "@/lib/engine/performance";
 import { rebalance } from "@/lib/engine/rebalance";
-import { targetWeights } from "@/lib/engine/targets";
+import { applyPersonalTilt, targetWeights } from "@/lib/engine/targets";
 import { SLEEVES, type HoldingInput, type Phase, type PhaseSource, type RebalanceResult, type Sleeve } from "@/lib/engine/types";
 import { incomeToKrw } from "@/lib/engine/value";
 import { currentYearMonth } from "@/lib/format";
@@ -178,8 +178,10 @@ export type AppView = {
   phase: Phase;
   phaseWhy: PhaseWhyNote;
   phaseSource: PhaseSource;
-  /** 관리자 비중표에 상한을 적용한 이번 국면 목표 비중 */
+  /** 우선을 반영한 내 목표 비중. 괴리와 매매 금액이 이 값을 쓴다. */
   targets: Record<Sleeve, number>;
+  /** 관리자 비중표에 상한을 적용한 이번 국면 기준 비중. 모든 계좌가 같다. */
+  baseTargets: Record<Sleeve, number>;
   holdings: HoldingInput[];
   month: string;
   incomes: PortfolioRecord["incomes"];
@@ -227,13 +229,16 @@ async function buildView(user: SessionUser, setting: PhaseSettingView, attempt =
     portfolio.phase = phase;
     portfolio.phaseSource = "admin";
   }
-  const targets = targetWeights(phase, setting.weights).weights;
+  const aim = user.pickPrefs?.aim ?? null;
+  const baseTargets = targetWeights(phase, setting.weights).weights;
+  const targets = applyPersonalTilt(baseTargets, aim);
   const holdings = portfolio.holdings.map(toHoldingInput);
   const month = currentYearMonth();
   const incomes = portfolio.incomes.filter((income) => currentYearMonth(income.date) === month);
   const result = rebalance({
     phase,
     weights: setting.weights,
+    aim,
     holdings,
     fx: { USDKRW: portfolio.usdKrw },
     incomes: incomes.map((income) => ({
@@ -294,6 +299,7 @@ async function buildView(user: SessionUser, setting: PhaseSettingView, attempt =
     phaseWhy: setting.whys[phase],
     phaseSource,
     targets,
+    baseTargets,
     holdings,
     month,
     incomes,

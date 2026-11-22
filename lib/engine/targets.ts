@@ -1,4 +1,5 @@
 import { GUARDRAIL_MAX, GUARDRAIL_MIN, PHASE_WEIGHTS, SLEEVE_LABEL } from "./config";
+import type { PickAim } from "./pick-prefs";
 import { SLEEVES, type Phase, type Sleeve, type WeightTable } from "./types";
 
 type Group = {
@@ -115,6 +116,80 @@ export function targetWeights(
   notes: Partial<Record<Sleeve, string>>;
 } {
   return applyGuardrail(table[phase]);
+}
+
+/** 국면 위험자산(한국주식·미국주식·부동산)을 우선에 따라 기울일 때 쓰는 배수. */
+const PERSONAL_FACTOR = { payout: 0.75, price: 1.15 } as const;
+const PERSONAL_RISK: Sleeve[] = ["KR_EQUITY", "US_EQUITY", "REIT"];
+const PERSONAL_CASH: Sleeve[] = ["KRW_CASH", "USD_CASH"];
+/** 성향이 국면 위험자산 합계에서 움직일 수 있는 최대 폭. */
+const PERSONAL_BAND = 0.1;
+
+/**
+ * 국면 목표를 우선으로 기울인다.
+ * 배당·이자 우선은 위험자산을 75%로, 가격 상승 우선은 115%로 두고 차액은 현금으로 오간다.
+ * 둘 다와 아직 고르지 않은 경우는 국면 표 그대로다.
+ * 채권, 금, 0% 칸은 그대로 두고, ±10%p와 그룹 상한 60% 안에서만 움직인다.
+ */
+export function applyPersonalTilt(
+  base: Record<Sleeve, number>,
+  aim: PickAim | null | undefined,
+): Record<Sleeve, number> {
+  const weights = cloneWeights(base);
+  if (aim !== "payout" && aim !== "price") return weights;
+
+  const risk = PERSONAL_RISK.filter((sleeve) => weights[sleeve] > EPS);
+  const cash = PERSONAL_CASH.filter((sleeve) => weights[sleeve] > EPS);
+  const riskSum = groupSum(weights, risk);
+  const cashSum = groupSum(weights, cash);
+  if (riskSum <= EPS || cashSum <= EPS) return weights;
+
+  let desired = riskSum * PERSONAL_FACTOR[aim];
+  desired = Math.min(riskSum + PERSONAL_BAND, Math.max(riskSum - PERSONAL_BAND, desired));
+  if (desired > riskSum) {
+    let scaleCap = (riskSum + cashSum) / riskSum;
+    const equity = weights.KR_EQUITY + weights.US_EQUITY;
+    if (equity > EPS) scaleCap = Math.min(scaleCap, GUARDRAIL_MAX / equity);
+    if (weights.REIT > EPS) scaleCap = Math.min(scaleCap, GUARDRAIL_MAX / weights.REIT);
+    desired = Math.min(desired, riskSum * scaleCap);
+  }
+
+  const scale = desired / riskSum;
+  for (const sleeve of risk) weights[sleeve] = base[sleeve] * scale;
+  const moved = riskSum - groupSum(weights, risk);
+  const nextCash = cash.map((sleeve) => base[sleeve] + moved * (base[sleeve] / cashSum));
+  if (moved > 0) {
+    let overflow = 0;
+    for (let index = 0; index < nextCash.length; index += 1) {
+      if (nextCash[index] > GUARDRAIL_MAX) {
+        overflow += nextCash[index] - GUARDRAIL_MAX;
+        nextCash[index] = GUARDRAIL_MAX;
+      }
+    }
+    if (overflow > EPS) {
+      const room = nextCash.map((value) => Math.max(0, GUARDRAIL_MAX - value));
+      const roomSum = room.reduce((sum, value) => sum + value, 0);
+      if (roomSum > EPS) {
+        const place = Math.min(overflow, roomSum);
+        for (let index = 0; index < nextCash.length; index += 1) nextCash[index] += (place * room[index]) / roomSum;
+        overflow -= place;
+      }
+      if (overflow > EPS) {
+        const now = groupSum(weights, risk);
+        for (const sleeve of risk) weights[sleeve] += overflow * (weights[sleeve] / now);
+      }
+    }
+  }
+  cash.forEach((sleeve, index) => {
+    weights[sleeve] = Math.max(0, nextCash[index]);
+  });
+
+  const drift = SLEEVES.reduce((sum, sleeve) => sum + weights[sleeve], 0) - 1;
+  if (Math.abs(drift) > 1e-12) {
+    const host = cash.reduce((best, sleeve) => (weights[sleeve] > weights[best] ? sleeve : best), cash[0]);
+    weights[host] -= drift;
+  }
+  return weights;
 }
 
 /** 관리자 입력을 검사한다. 합이 100%가 아니거나 상한을 넘으면 안내 문구를 돌려준다. */

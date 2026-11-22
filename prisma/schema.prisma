@@ -31,6 +31,20 @@ model User {
   pickLimit    Int         @default(1)
   /// 이미 새로 받은 횟수.
   pickUsed     Int         @default(0)
+  /// 추천 상품. etf, mix, stock. 비어 있으면 아직 고르지 않았다.
+  pickInstrument String @default("")
+  /// 추천 매수. existing, half, fresh.
+  pickAddTo    String      @default("")
+  /// 익숙한 시장. kr, both, us. 자산군은 바꾸지 않고, 양쪽 상장이 가능한 칸에서만 쓴다.
+  pickMarket   String      @default("")
+  /// 종목 우선. payout 분배, both 둘 다, price 가격 상승. 비어 있으면 둘 다로 본다.
+  pickAim      String      @default("")
+  /// 제외 상품. leverage, single. 쉼표로 구분하고, 비어 있으면 제외하지 않는다.
+  pickExclude  String      @default("")
+  /// 선호 섹터. tech, semi, finance, energy, health, consumer, industrial. 쉼표로 구분하고, 비어 있으면 가리지 않는다.
+  pickSectors  String      @default("")
+  /// 향후 추진 계획 기간. 1주, 2주, 4주. 종목 추천은 바꾸지 않는다.
+  pickPlanWeeks Int        @default(1)
   portfolios   Portfolio[]
   sessions     Session[]
   llmKeys      UserLlmKey[]

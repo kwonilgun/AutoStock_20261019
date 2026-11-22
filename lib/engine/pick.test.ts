@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { pickAddSeed, pickBuys, pickSells, type PickBuy, type PickSnapshot } from "./pick-context";
 import { assignedPickEngine, pickVisibleCache } from "@/lib/pick-engine";
 import { parsePickReason, parsePickReply, parseStoredPick, serializeStoredPick } from "./pick-parse";
-import { PICK_REASON_SYSTEM_PROMPT, PICK_SYSTEM_PROMPT, pickReasonUserPrompt } from "./pick-prompt";
-import { buildPickSchedule, nextTradingDays } from "./pick-schedule";
+import { labelPickPrefs, pickPrefsFromRow, pickPrefsKey, readPickPrefs } from "./pick-prefs";
+import { PICK_REASON_SYSTEM_PROMPT, PICK_SYSTEM_PROMPT, pickReasonUserPrompt, pickUserPrompt } from "./pick-prompt";
+import { buildPickSchedule, buildPickWeekPlan, formatScheduleWeek, nextTradingDays, pickPlanWeeksOf } from "./pick-schedule";
 import type { HoldingInput, Sleeve, SleeveSnapshot } from "./types";
 
 function holding(partial: Partial<HoldingInput> & Pick<HoldingInput, "ticker" | "sleeve" | "quantity" | "price">): HoldingInput {
@@ -179,9 +180,57 @@ describe("추천 종목 응답", () => {
     expect(pickVisibleCache(spark, "spark", false)).toBe(spark);
   });
 
-  it("프롬프트는 살 금액을 고치지 말라고 잠근다", () => {
+  it("프롬프트는 살 금액을 고치지 말라고 잠그고 기준은 종목 선택에만 쓴다", () => {
     expect(PICK_SYSTEM_PROMPT).toContain("살 금액과 괴리 %p는 입력 JSON이 정답이다");
     expect(PICK_SYSTEM_PROMPT).toContain("금액, 비중, 괴리 %p를 고치지 마라");
+    expect(PICK_SYSTEM_PROMPT).toContain("prefs가 있으면 종목 선택에만 쓴다");
+    expect(PICK_SYSTEM_PROMPT).toContain("exclude가 instrument보다 우선이다");
+    expect(PICK_SYSTEM_PROMPT).toContain("배당 이자 우선이면 그 자산군 안에서 배당이나 이자가 붙는 상품을 우선한다");
+    expect(PICK_SYSTEM_PROMPT).toContain("preferSectors에 적힌 섹터가 있으면 그 섹터를 위주로 고른다");
+    expect(PICK_REASON_SYSTEM_PROMPT).toContain("prefs에 없는 성향은 만들지 마라");
+  });
+
+  it("추천 기준은 고른 말로 넘기고 자산군과 금액은 그대로 둔다", () => {
+    const prefs = readPickPrefs({
+      instrument: "etf",
+      addTo: "existing",
+      market: "kr",
+      aim: "payout",
+      exclude: ["single", "leverage", "없는값"],
+      sectors: ["semi", "tech"],
+    });
+    expect(prefs.ok).toBe(true);
+    if (!prefs.ok) return;
+    expect(prefs.prefs.exclude).toEqual(["leverage", "single"]);
+    expect(prefs.prefs.sectors).toEqual(["tech", "semi"]);
+    expect(readPickPrefs({ instrument: "stock", addTo: "fresh", market: "us", aim: "price", exclude: ["single"], sectors: [] })).toEqual({
+      ok: false,
+      message: "개별 종목을 빼면 개별주 위주를 고를 수 없습니다.",
+    });
+    expect(pickPrefsFromRow({ instrument: "", addTo: "half", market: "both", exclude: "", sectors: "" })).toBeNull();
+    const snapshot: PickSnapshot = {
+      phase: { id: "B1", name: "조정" },
+      buys: [{ ...buy("GOLD"), label: "금", gapPp: -3 }],
+      prefs: prefs.prefs,
+    };
+    const prompt = pickUserPrompt(snapshot);
+    expect(prompt).toContain("prefs는 종목 선택에만 써라");
+    expect(prompt).toContain(JSON.stringify(labelPickPrefs(prefs.prefs)));
+    expect(prompt).toContain("ETF 위주");
+    expect(prompt).toContain("배당 이자 우선");
+    expect(pickPrefsFromRow({ instrument: "etf", addTo: "half", market: "both", aim: "", exclude: "", sectors: "" })?.aim).toBe("both");
+    expect(prompt).toContain("레버리지·인버스");
+    expect(prompt).toContain("반도체");
+    expect(prompt).toContain("preferSectors");
+    expect(prompt).not.toContain("excludeSectors");
+    expect(prompt).not.toContain('"instrument":"etf"');
+    const reason = pickReasonUserPrompt(snapshot, [
+      { sleeve: "GOLD", ticker: "411060", name: "ACE KRX금현물", note: "한국 상장 금 ETF" },
+    ]);
+    expect(reason).toContain("ETF 위주");
+    expect(reason).toContain("411060");
+    const stored = serializeStoredPick({ snapshot, engine: "claude", items: [{ sleeve: "GOLD", ticker: "411060", name: "ACE KRX금현물", note: "한국 상장 금 ETF" }] });
+    expect(pickPrefsKey(parseStoredPick(stored)?.snapshot.prefs)).toBe(pickPrefsKey(prefs.prefs));
   });
 
   it("이유 문장만 읽고 코드 펜스와 JSON 껍질은 벗긴다", () => {
@@ -240,5 +289,89 @@ describe("추천 종목 응답", () => {
     expect(sold.filter((line) => line.ticker === "102110").reduce((sum, line) => sum + line.amountKrw, 0)).toBe(300);
     expect(days.map((day) => day.buys.map((line) => line.ticker))).toEqual([["VOO"], ["SPY"], ["VOO"], ["SPY"]]);
     expect(days[0].sells[0].ticker).toBe("069500");
+  });
+
+  it("향후 계획은 매도를 먼저 두고 큰 매수를 한 종목씩 이어 가며 작은 금액은 모은다", () => {
+    expect(pickPlanWeeksOf(2)).toBe(2);
+    expect(pickPlanWeeksOf(3)).toBe(1);
+    const small = buildPickWeekPlan({
+      fromDay: "2026-11-21",
+      weeks: 1,
+      sells: [
+        {
+          sleeve: "KR_EQUITY",
+          label: "한국주식",
+          gapPp: 3.5,
+          sellKrw: 900,
+          holdings: [
+            { ticker: "069500", name: "KODEX 200", valueKrw: 600 },
+            { ticker: "102110", name: "TIGER 200", valueKrw: 400 },
+          ],
+        },
+      ],
+      buys: [{ ...buy("US_EQUITY"), label: "미국주식", buyKrw: 100 }],
+      items: [
+        { sleeve: "US_EQUITY", ticker: "VOO", name: "Vanguard" },
+        { sleeve: "US_EQUITY", ticker: "SPY", name: "SPDR" },
+      ],
+    });
+    expect(small).toHaveLength(1);
+    expect(formatScheduleWeek(small[0])).toBe("1주차 · 11월 23일 월 – 11월 27일 금");
+    expect(small[0].sells.map((line) => [line.ticker, line.amountKrw])).toEqual([
+      ["069500", 600],
+      ["102110", 300],
+    ]);
+    expect(small[0].buys).toEqual([
+      { ticker: "VOO", name: "Vanguard", label: "미국주식", amountKrw: 100, alternates: [{ sleeve: "US_EQUITY", ticker: "SPY", name: "SPDR" }] },
+    ]);
+
+    const spread = buildPickWeekPlan({
+      fromDay: "2026-11-21",
+      weeks: 4,
+      sells: [
+        {
+          sleeve: "KR_EQUITY",
+          label: "한국주식",
+          gapPp: 5,
+          sellKrw: 1_000_000,
+          holdings: [
+            { ticker: "069500", name: "KODEX 200", valueKrw: 600_000 },
+            { ticker: "102110", name: "TIGER 200", valueKrw: 400_000 },
+          ],
+        },
+      ],
+      buys: [
+        { ...buy("US_EQUITY"), label: "미국주식", buyKrw: 600_000 },
+        { ...buy("GOLD"), label: "금", buyKrw: 200_000 },
+      ],
+      items: [
+        { sleeve: "US_EQUITY", ticker: "VOO", name: "Vanguard" },
+        { sleeve: "US_EQUITY", ticker: "SPY", name: "SPDR" },
+        { sleeve: "GOLD", ticker: "IAU", name: "iShares Gold" },
+      ],
+    });
+    expect(spread.map((week) => [week.start, week.end])).toEqual([
+      ["2026-11-23", "2026-11-27"],
+      ["2026-11-30", "2026-12-04"],
+      ["2026-12-07", "2026-12-11"],
+      ["2026-12-14", "2026-12-18"],
+    ]);
+    expect(spread[0].sells.map((line) => line.amountKrw)).toEqual([600_000, 400_000]);
+    expect(spread[0].buys).toEqual([]);
+    expect(spread[1].buys.map((line) => [line.ticker, line.amountKrw])).toEqual([["VOO", 300_000]]);
+    expect(spread[1].buys[0].alternates?.map((item) => item.ticker)).toEqual(["SPY"]);
+    expect(spread[2].buys.map((line) => [line.ticker, line.amountKrw])).toEqual([["IAU", 200_000]]);
+    expect(spread[3].buys.map((line) => [line.ticker, line.amountKrw])).toEqual([["VOO", 300_000]]);
+    expect(spread.flatMap((week) => week.sells).reduce((sum, line) => sum + line.amountKrw, 0)).toBe(1_000_000);
+    expect(spread.flatMap((week) => week.buys).reduce((sum, line) => sum + line.amountKrw, 0)).toBe(800_000);
+
+    const lumped = buildPickWeekPlan({
+      fromDay: "2026-11-21",
+      weeks: 4,
+      sells: [],
+      buys: [{ ...buy("GOLD"), label: "금", buyKrw: 250_000 }],
+      items: [{ sleeve: "GOLD", ticker: "IAU", name: "iShares Gold" }],
+    });
+    expect(lumped.map((week) => week.buys.reduce((sum, line) => sum + line.amountKrw, 0))).toEqual([125_000, 125_000, 0, 0]);
   });
 });

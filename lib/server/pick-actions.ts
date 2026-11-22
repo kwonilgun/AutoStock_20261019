@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { pickSells, pickSnapshot, type PickSnapshot } from "@/lib/engine/pick-context";
+import { PICK_PREFS_ASK_MESSAGE } from "@/lib/engine/pick-prefs";
 import { parsePickReason, parsePickReply, type PickItem } from "@/lib/engine/pick-parse";
 import { PICK_REASON_SYSTEM_PROMPT, PICK_SYSTEM_PROMPT, pickReasonUserPrompt, pickUserPrompt } from "@/lib/engine/pick-prompt";
-import { buildPickSchedule, type PickScheduleDay } from "@/lib/engine/pick-schedule";
+import { buildPickWeekPlan, pickPlanWeeksOf, type PickPlanWeeks, type PickScheduleWeek } from "@/lib/engine/pick-schedule";
 import { emptyMessage } from "@/lib/engine/rebalance";
 import { seoulDay } from "@/lib/format";
 import { PICK_DISABLED_MESSAGE, PICK_LIMIT_MESSAGE, type PickEngine, type PickQuota } from "@/lib/pick-engine";
@@ -62,13 +63,17 @@ async function preparePick(refresh: boolean, engine: PickEngine): Promise<PickPr
         };
       }
     }
+    if (!user.pickPrefs) {
+      console.log(pickLogText({ step: "prepare", refresh, ok: false, kind: "no-prefs" }));
+      return { ok: false, message: PICK_PREFS_ASK_MESSAGE };
+    }
     const view = await getView();
     const blocked = emptyMessage(view.result);
     if (blocked) {
       console.log(pickLogText({ step: "prepare", refresh, ok: false, kind: "blocked", message: blocked }));
       return { ok: false, message: blocked };
     }
-    const snapshot = pickSnapshot(view.phase, view.holdings, view.result, view.portfolio.usdKrw);
+    const snapshot = pickSnapshot(view.phase, view.holdings, view.result, view.portfolio.usdKrw, user.pickPrefs);
     if (snapshot.buys.length === 0) {
       if (refresh) await clearPickCache(user.id);
       console.log(pickLogText({ step: "prepare", refresh, ok: true, kind: "empty", buys: 0 }));
@@ -109,13 +114,17 @@ async function finishPick(raw: string | null, engine: PickEngine): Promise<PickR
       console.log(pickLogText({ step: "finish", ok: false, kind: "no-member" }));
       return { ok: false, message: "추천 종목을 받지 못했습니다." };
     }
+    if (!user.pickPrefs) {
+      console.log(pickLogText({ step: "finish", ok: false, kind: "no-prefs" }));
+      return { ok: false, message: PICK_PREFS_ASK_MESSAGE };
+    }
     const view = await getView();
     const blocked = emptyMessage(view.result);
     if (blocked) {
       console.log(pickLogText({ step: "finish", ok: false, kind: "blocked", message: blocked }));
       return { ok: false, message: blocked };
     }
-    const snapshot = pickSnapshot(view.phase, view.holdings, view.result, view.portfolio.usdKrw);
+    const snapshot = pickSnapshot(view.phase, view.holdings, view.result, view.portfolio.usdKrw, user.pickPrefs);
     if (snapshot.buys.length === 0) {
       await clearPickCache(user.id);
       revalidatePath("/picks");
@@ -326,10 +335,11 @@ export async function requestPickReason(): Promise<PickReasonResult> {
   }
 }
 
-export type PickPlanResult = { ok: true; days: PickScheduleDay[] } | { ok: false; message: string };
+export type PickPlanResult = { ok: true; weeks: PickScheduleWeek[]; span: PickPlanWeeks } | { ok: false; message: string };
 
-/** 넘친 금액과 화면에 나온 매수 후보를 다음 거래일로 나눈다. 추천 횟수에는 넣지 않는다. */
-export async function requestPickPlan(): Promise<PickPlanResult> {
+/** 넘친 금액과 화면에 나온 매수 후보를 고른 주 수에 맞춰 나눈다. 추천 횟수에는 넣지 않는다. */
+export async function requestPickPlan(span: number): Promise<PickPlanResult> {
+  const weeks = pickPlanWeeksOf(span);
   try {
     const user = await getCurrentUser();
     if (!user || user.role === "admin") {
@@ -347,11 +357,12 @@ export async function requestPickPlan(): Promise<PickPlanResult> {
     }
     const view = await getView();
     const sells = emptyMessage(view.result) ? [] : pickSells(view.holdings, view.result.sleeves, view.portfolio.usdKrw);
-    const days = buildPickSchedule({
+    const plan = buildPickWeekPlan({
       sells,
       buys: cached.snapshot.buys,
       items: cached.items,
       fromDay: seoulDay(),
+      weeks,
     });
     console.log(
       pickLogText({
@@ -360,10 +371,11 @@ export async function requestPickPlan(): Promise<PickPlanResult> {
         kind: "schedule",
         buys: cached.snapshot.buys.length,
         items: cached.items.length,
+        days: plan.length,
         sleeves: [...sells.map((sell) => sell.sleeve), ...cached.snapshot.buys.map((buy) => buy.sleeve)],
       }),
     );
-    return { ok: true, days };
+    return { ok: true, weeks: plan, span: weeks };
   } catch (error) {
     unstable_rethrow(error);
     console.log(pickLogText({ step: "plan", ok: false, kind: "error", detail: pickErrorDetail(error) }));

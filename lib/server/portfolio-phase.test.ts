@@ -4,6 +4,7 @@ import { cachedViewApplies } from "@/lib/server/view-cache";
 const usable = {
   phase: "A3" as const,
   phaseWhy: { when: "", lead: "왜", sections: [], close: "" },
+  baseTargets: { US_EQUITY: 0.2 },
   quantityEvents: [],
   positionDays: [],
 };
@@ -19,5 +20,9 @@ describe("cachedViewApplies", () => {
 
   it("국면 설명이 없는 예전 기억은 쓰지 않는다", () => {
     expect(cachedViewApplies({ phase: "A3", quantityEvents: [], positionDays: [] }, "A3")).toBe(false);
+  });
+
+  it("기준 비중이 없는 예전 기억은 쓰지 않는다", () => {
+    expect(cachedViewApplies({ ...usable, baseTargets: undefined }, "A3")).toBe(false);
   });
 });

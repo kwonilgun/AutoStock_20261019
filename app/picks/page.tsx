@@ -19,5 +19,5 @@ export default async function PicksPage() {
     );
   }
   const [saved, quota] = await Promise.all([loadSavedPick(), readPickQuota(user.id)]);
-  return <ViewFrame>{() => <PickPanel initial={saved} quota={quota} />}</ViewFrame>;
+  return <ViewFrame>{() => <PickPanel initial={saved} quota={quota} prefs={user.pickPrefs} planWeeks={user.planWeeks} />}</ViewFrame>;
 }

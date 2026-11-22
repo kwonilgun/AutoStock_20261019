@@ -87,6 +87,8 @@ export type RebalanceInput = {
   phase: Phase;
   /** 관리자가 정한 국면별 비중. 없으면 기본표를 쓴다. */
   weights?: WeightTable;
+  /** AI 종목추천의 우선. 없으면 국면 비중 그대로다. */
+  aim?: "payout" | "both" | "price" | null;
   holdings: HoldingInput[];
   fx: { USDKRW: number };
   incomes: { ticker: string; amountKrw: number }[];
