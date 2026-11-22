@@ -57,7 +57,7 @@ export function viewGeneration(userId: string) {
 }
 
 /** 관리자가 국면을 바꾼 뒤에도 탭 전환 기억이 예전 국면을 보여 주면 안 된다. */
-export function cachedViewApplies<T extends { phase: Phase; phaseWhy?: unknown; quantityEvents?: unknown; positionDays?: unknown }>(
+export function cachedViewApplies<T extends { phase: Phase; phaseWhy?: unknown; quantityEvents?: unknown; positionDays?: unknown; baseTargets?: unknown }>(
   cached: T | null | undefined,
   phase: Phase,
 ): cached is T {
@@ -65,6 +65,7 @@ export function cachedViewApplies<T extends { phase: Phase; phaseWhy?: unknown; 
     cached &&
       cached.phase === phase &&
       cached.phaseWhy &&
+      cached.baseTargets &&
       Array.isArray(cached.quantityEvents) &&
       Array.isArray(cached.positionDays),
   );

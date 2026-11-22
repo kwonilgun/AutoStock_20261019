@@ -7,7 +7,7 @@ import { gapViews } from "./gap";
 import { emptyMessage, rebalance } from "./rebalance";
 import { buildAdjustmentBooks } from "./books";
 import { buildSnapshotPayload } from "./snapshot";
-import { applyGuardrail, stockWeight, targetWeights, weightProblem } from "./targets";
+import { applyGuardrail, applyPersonalTilt, stockWeight, targetWeights, weightProblem } from "./targets";
 import { PHASES, SLEEVES, type HoldingInput, type Phase, type Sleeve } from "./types";
 
 function orderAmount(result: ReturnType<typeof rebalance>, ticker: string, action: string) {
@@ -62,6 +62,64 @@ describe("목표 비중", () => {
     expect((b1.BOND_10Y - ANCHOR.BOND_10Y) * 100).toBeCloseTo(-3.333333, 4);
     const a2 = targetWeights("A2").weights;
     expect(stockWeight(a2)).toBeCloseTo(0.55);
+  });
+
+  it("우선은 주식·부동산과 현금만 기울이고 채권·금·0%는 그대로 둔다", () => {
+    const base = targetWeights("A2").weights;
+    expect(applyPersonalTilt(base, null)).toEqual(base);
+    expect(applyPersonalTilt(base, "both")).toEqual(base);
+
+    const income = applyPersonalTilt(base, "payout");
+    expect(income.BOND_10Y).toBeCloseTo(base.BOND_10Y);
+    expect(income.BOND_30Y).toBe(0);
+    expect(income.GOLD).toBeCloseTo(base.GOLD);
+    expect(income.BTC).toBe(0);
+    expect(income.US_EQUITY / income.KR_EQUITY).toBeCloseTo(base.US_EQUITY / base.KR_EQUITY);
+    expect(income.KRW_CASH / income.USD_CASH).toBeCloseTo(base.KRW_CASH / base.USD_CASH);
+    const baseRisk = base.US_EQUITY + base.KR_EQUITY + base.REIT;
+    const incomeRisk = income.US_EQUITY + income.KR_EQUITY + income.REIT;
+    expect(baseRisk - incomeRisk).toBeCloseTo(0.1);
+    expect(SLEEVES.reduce((sum, sleeve) => sum + income[sleeve], 0)).toBeCloseTo(1);
+
+    const growth = applyPersonalTilt(base, "price");
+    expect(growth.BOND_30Y).toBe(0);
+    expect(growth.GOLD).toBeCloseTo(base.GOLD);
+    expect(growth.US_EQUITY + growth.KR_EQUITY).toBeCloseTo(0.6);
+    expect(growth.US_EQUITY + growth.KR_EQUITY + growth.REIT - baseRisk).toBeLessThanOrEqual(0.1 + 1e-8);
+    expect(growth.KRW_CASH + growth.USD_CASH).toBeLessThan(base.KRW_CASH + base.USD_CASH);
+
+    const crash = applyPersonalTilt(targetWeights("B2").weights, "price");
+    expect(crash.KR_EQUITY).toBe(0);
+    expect(crash.US_EQUITY).toBeCloseTo(0.0575);
+    expect(crash.BOND_30Y).toBeCloseTo(0.35);
+  });
+
+  it("현금이 모자라면 채권을 깎지 않고 현금만큼만 옮긴다", () => {
+    const base = {
+      ...PHASE_WEIGHTS.A2,
+      US_EQUITY: 0.4,
+      KR_EQUITY: 0.1,
+      REIT: 0.1,
+      BOND_10Y: 0.28,
+      KRW_CASH: 0.02,
+      USD_CASH: 0,
+    };
+    const growth = applyPersonalTilt(base, "price");
+    expect(growth.BOND_10Y).toBeCloseTo(base.BOND_10Y);
+    expect(growth.USD_CASH).toBe(0);
+    expect(growth.KRW_CASH).toBeCloseTo(0);
+    expect(growth.US_EQUITY + growth.KR_EQUITY + growth.REIT).toBeCloseTo(0.62);
+  });
+
+  it("리밸런스는 우선이 반영된 내 목표로 괴리를 계산한다", () => {
+    const plain = rebalance({ ...exampleInput(), phase: "A2" });
+    const income = rebalance({ ...exampleInput(), phase: "A2", aim: "payout" });
+    const usPlain = plain.sleeves.find((sleeve) => sleeve.sleeve === "US_EQUITY");
+    const usIncome = income.sleeves.find((sleeve) => sleeve.sleeve === "US_EQUITY");
+    const goldPlain = plain.sleeves.find((sleeve) => sleeve.sleeve === "GOLD");
+    const goldIncome = income.sleeves.find((sleeve) => sleeve.sleeve === "GOLD");
+    expect(usIncome?.targetWeight).toBeLessThan(usPlain?.targetWeight ?? 0);
+    expect(goldIncome?.targetWeight).toBeCloseTo(goldPlain?.targetWeight ?? 0);
   });
 
   it("표의 0%와 5%를 가드레일이 올리지 않는다", () => {

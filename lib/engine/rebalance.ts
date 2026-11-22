@@ -1,6 +1,6 @@
 import { ANCHOR, SLEEVE_LABEL, defaultBuyInstrument, isCashSleeve, isFundSleeve } from "./config";
 import { settleBondGap, sleeveStatus } from "./gap";
-import { targetWeights } from "./targets";
+import { applyPersonalTilt, targetWeights } from "./targets";
 import { SLEEVES, type BondDuration, type Currency, type HoldingInput, type OrderLine, type RebalanceInput, type RebalanceResult, type Sleeve, type SleeveSnapshot } from "./types";
 import { emptySleeveTotals, fxRate, sumSleeves, valueKrw, won } from "./value";
 
@@ -218,7 +218,9 @@ export function rebalance(input: RebalanceInput): RebalanceResult {
 
   // 펀드 평가금액은 총자산에만 넣고, 목표 비중과 매매는 나머지 자산으로 계산한다.
   const allocationKrw = totalKrw - totals.FUND;
-  const { weights, notes } = targetWeights(input.phase, input.weights);
+  const base = targetWeights(input.phase, input.weights);
+  const weights = applyPersonalTilt(base.weights, input.aim);
+  const notes = base.notes;
   const measured: SleeveSnapshot[] = SLEEVES.map((sleeve) => {
     const currentKrw = totals[sleeve];
     if (isFundSleeve(sleeve) || allocationKrw <= 0) {

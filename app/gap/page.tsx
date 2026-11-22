@@ -13,7 +13,7 @@ const GROUPS: { label: string; color: string; sleeves: Sleeve[] }[] = [
   { label: "현금", color: "#8b95a1", sleeves: ["KRW_CASH", "USD_CASH"] },
 ];
 
-function sleeveView(sleeve: SleeveSnapshot): GapView {
+function sleeveView(sleeve: SleeveSnapshot, baseWeight: number): GapView {
   return {
     id: sleeve.sleeve,
     label: SLEEVE_LABEL[sleeve.sleeve],
@@ -25,6 +25,7 @@ function sleeveView(sleeve: SleeveSnapshot): GapView {
     gapPp: sleeve.gapPp,
     status: sleeveStatus(sleeve.currentWeight, sleeve.targetWeight),
     guardNote: sleeve.guardNote,
+    baseWeight,
   };
 }
 
@@ -33,6 +34,7 @@ function groupView(label: string, colorSleeve: Sleeve, parts: GapView[]): GapVie
   const currentWeight = parts.reduce((sum, part) => sum + part.currentWeight, 0);
   const targetWeight = parts.reduce((sum, part) => sum + part.targetWeight, 0);
   const targetKrw = parts.reduce((sum, part) => sum + part.targetKrw, 0);
+  const baseWeight = parts.reduce((sum, part) => sum + (part.baseWeight ?? 0), 0);
   return {
     id: label,
     label,
@@ -44,6 +46,7 @@ function groupView(label: string, colorSleeve: Sleeve, parts: GapView[]): GapVie
     gapPp: (currentWeight - targetWeight) * 100,
     status: sleeveStatus(currentWeight, targetWeight),
     guardNote: null,
+    baseWeight,
   };
 }
 
@@ -62,7 +65,7 @@ export default function GapPage() {
             const snapshot = bySleeve.get(sleeve);
             if (!snapshot) return [];
             if (sleeve === "BTC" && snapshot.currentKrw <= 0 && snapshot.targetWeight <= 0) return [];
-            return [sleeveView(snapshot)];
+            return [sleeveView(snapshot, view.baseTargets[sleeve])];
           });
           if (members.length === 0) return [];
           return [{ ...group, summary: groupView(group.label, group.sleeves[0], members), members }];
@@ -79,7 +82,7 @@ export default function GapPage() {
               <p className="mt-2 text-[14px] text-[#8b95a1]">
                 {off === 0 ? "모두 ±2%p 안쪽이라 그대로 둡니다" : `과다 ${over}개 · 부족 ${under}개`}
               </p>
-              <p className="mt-1 text-[13px] text-[#8b95a1]">{view.phase} 국면 기준</p>
+              <p className="mt-1 text-[13px] text-[#8b95a1]">{view.phase} 국면 · 내 목표 기준</p>
               {message ? <p className="mt-3 text-[13px] font-medium text-[#f04452]">{message}</p> : null}
             </section>
 

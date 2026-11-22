@@ -44,6 +44,12 @@ function gapTone(status: GapView["status"]): string {
   return "text-[#8b95a1]";
 }
 
+function baseNote(sleeve: GapView): string | null {
+  if (sleeve.baseWeight == null) return null;
+  if (formatPercent(sleeve.baseWeight) === formatPercent(sleeve.targetWeight)) return null;
+  return `기준 ${formatPercent(sleeve.baseWeight)}`;
+}
+
 function gapMoney(sleeve: GapView): string {
   if (sleeve.status === "match") return "목표와 같아요";
   if (sleeve.status === "hold") return "±2%p 안쪽이라 그대로 둡니다";
@@ -96,7 +102,8 @@ function GroupSummary({ sleeve, color }: { sleeve: GapView; color: string }) {
       </div>
       <p className="mt-1.5 pl-5 text-[13px]  tabular-nums tracking-tight text-[#191f28]">합계 {won(sleeve.currentKrw)}</p>
       <p className="mt-0.5 pl-5 text-[13px] leading-5 text-[#4e5968]">
-        현재 {formatPercent(sleeve.currentWeight)} · 목표 {formatPercent(sleeve.targetWeight)} · {STATUS_LABEL[sleeve.status]}
+        현재 {formatPercent(sleeve.currentWeight)} · 목표 {formatPercent(sleeve.targetWeight)}
+        {baseNote(sleeve) ? ` · ${baseNote(sleeve)}` : ""} · {STATUS_LABEL[sleeve.status]}
       </p>
       <p className={`mt-0.5 pl-5 text-[13px] font-semibold ${gapTone(sleeve.status)}`}>{gapMoney(sleeve)}</p>
       <div className="pl-5">
@@ -118,7 +125,8 @@ function MemberLine({ sleeve, color }: { sleeve: GapView; color: string }) {
       </div>
       <p className="mt-1 pl-3.5 text-[13px] font-semibold tabular-nums text-[#191f28]">{won(sleeve.currentKrw)}</p>
       <p className="mt-0.5 pl-3.5 text-[12px] leading-5 text-[#8b95a1]">
-        현재 {formatPercent(sleeve.currentWeight)} · 목표 {formatPercent(sleeve.targetWeight)} · {STATUS_LABEL[sleeve.status]}
+        현재 {formatPercent(sleeve.currentWeight)} · 목표 {formatPercent(sleeve.targetWeight)}
+        {baseNote(sleeve) ? ` · ${baseNote(sleeve)}` : ""} · {STATUS_LABEL[sleeve.status]}
       </p>
       <p className={`mt-0.5 pl-3.5 text-[12px] ${gapTone(sleeve.status)}`}>{gapMoney(sleeve)}</p>
       <div className="pl-3.5">
@@ -140,7 +148,7 @@ export function GapFolders({ groups }: { groups: GapFolder[] }) {
     <section className="rounded-[22px] bg-white px-5 py-5">
       <h2 className="text-[17px] font-bold text-[#191f28]">자산별 괴리</h2>
       <p className="mt-1 text-[13px] leading-5 text-[#8b95a1]">
-        그룹을 누르면 세부 자산이 펼쳐집니다. 막대는 현재 비중, 눈금은 목표 비중입니다.
+        그룹을 누르면 세부 자산이 펼쳐집니다. 막대는 현재 비중, 눈금은 내 목표입니다. 국면 표와 다르면 기준이 함께 보입니다.
       </p>
       <ul>
         {groups.map((group) => {

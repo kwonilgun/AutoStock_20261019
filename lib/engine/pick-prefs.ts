@@ -12,7 +12,7 @@ export type PickAim = (typeof PICK_AIMS)[number];
 export type PickExclude = (typeof PICK_EXCLUDES)[number];
 export type PickSector = (typeof PICK_SECTORS)[number];
 
-/** 종목 선택에만 쓰는 추천 기준. 자산군과 살 금액은 바꾸지 않는다. */
+/** 종목 추천에 쓰는 기준. 우선만 목표 비중을 기울이고, 나머지 항목은 종목 선택에만 쓴다. */
 export type PickPrefs = {
   instrument: PickInstrument;
   addTo: PickAddTo;

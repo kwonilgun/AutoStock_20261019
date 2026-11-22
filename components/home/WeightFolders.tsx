@@ -6,8 +6,13 @@ import { formatPercent } from "@/lib/format";
 export type WeightFolder = {
   label: string;
   weight: number;
-  members: { label: string; weight: number }[];
+  baseWeight: number;
+  members: { label: string; weight: number; baseWeight: number }[];
 };
+
+function samePercent(weight: number, baseWeight: number): boolean {
+  return formatPercent(weight) === formatPercent(baseWeight);
+}
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -21,6 +26,20 @@ function ChevronIcon({ open }: { open: boolean }) {
     >
       <path d="M6 9.5 12 15.5 18 9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+function WeightNumbers({ weight, baseWeight, size }: { weight: number; baseWeight: number; size: "group" | "member" }) {
+  const shifted = !samePercent(weight, baseWeight);
+  return (
+    <span className="text-right">
+      <span
+        className={`block tabular-nums ${size === "group" ? "text-[16px] font-bold text-[#191f28]" : "text-[14px] font-semibold text-[#4e5968]"}`}
+      >
+        {formatPercent(weight)}
+      </span>
+      {shifted ? <span className="block text-[11px] font-medium tabular-nums text-[#8b95a1]">기준 {formatPercent(baseWeight)}</span> : null}
+    </span>
   );
 }
 
@@ -38,6 +57,11 @@ function WeightBar({ weight }: { weight: number }) {
 export function WeightFolders({ phase, groups }: { phase: string; groups: WeightFolder[] }) {
   const [sectionOpen, setSectionOpen] = useState(false);
   const [openLabels, setOpenLabels] = useState<string[]>([]);
+  const tilted = groups.some(
+    (group) =>
+      !samePercent(group.weight, group.baseWeight) ||
+      group.members.some((member) => !samePercent(member.weight, member.baseWeight)),
+  );
 
   function toggle(label: string) {
     setOpenLabels((current) => (current.includes(label) ? current.filter((item) => item !== label) : [...current, label]));
@@ -57,7 +81,11 @@ export function WeightFolders({ phase, groups }: { phase: string; groups: Weight
       </button>
       {sectionOpen ? (
         <div className="pb-5">
-          <p className="text-[13px] leading-5 text-[#8b95a1]">그룹을 누르면 세부 비중이 펼쳐집니다.</p>
+          <p className="text-[13px] leading-5 text-[#8b95a1]">
+            {tilted
+              ? "그룹을 누르면 세부 비중이 펼쳐집니다. 숫자는 내 목표이고, 국면 표와 다른 줄에는 기준이 함께 보입니다."
+              : "그룹을 누르면 세부 비중이 펼쳐집니다."}
+          </p>
           <ul className="mt-1">
             {groups.map((group) => {
               const open = openLabels.includes(group.label);
@@ -71,7 +99,9 @@ export function WeightFolders({ phase, groups }: { phase: string; groups: Weight
                   >
                     <span className="flex items-center justify-between gap-3">
                       <span className="text-[16px] font-bold text-[#191f28]">{group.label}</span>
-                      <span className="ml-auto text-[16px] font-bold tabular-nums text-[#191f28]">{formatPercent(group.weight)}</span>
+                      <span className="ml-auto">
+                        <WeightNumbers weight={group.weight} baseWeight={group.baseWeight} size="group" />
+                      </span>
                       <ChevronIcon open={open} />
                     </span>
                     <WeightBar weight={group.weight} />
@@ -82,7 +112,7 @@ export function WeightFolders({ phase, groups }: { phase: string; groups: Weight
                         <li key={member.label} className="border-t border-[#f2f4f6] py-2.5">
                           <span className="flex items-baseline justify-between gap-3">
                             <span className="text-[14px] font-semibold text-[#333d4b]">{member.label}</span>
-                            <span className="text-[14px] font-semibold tabular-nums text-[#4e5968]">{formatPercent(member.weight)}</span>
+                            <WeightNumbers weight={member.weight} baseWeight={member.baseWeight} size="member" />
                           </span>
                           <WeightBar weight={member.weight} />
                         </li>

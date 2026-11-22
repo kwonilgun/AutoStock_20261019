@@ -17,6 +17,8 @@ export type GapView = {
   gapPp: number;
   status: SleeveSnapshot["status"];
   guardNote: string | null;
+  /** 국면 기준 비중. 내 목표와 다를 때만 화면에 적는다. */
+  baseWeight?: number;
 };
 
 function weightBp(weight: number): number {

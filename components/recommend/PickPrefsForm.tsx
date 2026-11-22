@@ -71,7 +71,11 @@ export function PickPrefsForm({
       setMessage(result.message);
       return;
     }
-    setMessage(intent === "edit" ? "저장했습니다. 종목 기준을 바꿨으면 추천 종목에서 다시 받기를 누르세요. 추진 기간은 향후 계획에 바로 쓰입니다." : null);
+    setMessage(
+      intent === "edit"
+        ? "저장했습니다. 우선을 바꿨으면 홈의 목표 비중과 괴리가 바로 바뀝니다. 종목은 추천 종목에서 다시 받기를 누르세요."
+        : null,
+    );
     onSaved?.(result.prefs, result.planWeeks);
   }
 
@@ -80,8 +84,8 @@ export function PickPrefsForm({
       <h2 className="text-[17px] font-bold text-[#191f28]">추천 기준</h2>
       <p className="mt-2 text-[14px] leading-5 text-[#6b7684]">
         {intent === "start"
-          ? "종목을 고르기 전에 기준을 고릅니다. 한 번만 묻고, 설정에서 바꿀 수 있습니다. 살 자산군과 금액은 바꾸지 않습니다."
-          : "Ai-종목추천이 종목과 향후 계획을 나눌 때 씁니다. 살 자산군과 금액은 바꾸지 않습니다."}
+          ? "종목을 고르기 전에 기준을 고릅니다. 한 번만 묻고, 설정에서 바꿀 수 있습니다. 우선은 이번 달 목표 비중을 기울이고, 나머지 기준은 종목만 고릅니다."
+          : "우선은 홈의 이번 달 목표 비중과 괴리의 매수·매도 금액을 바꿉니다. 나머지 기준은 종목과 향후 계획에만 씁니다."}
       </p>
 
       <fieldset className="mt-5">
@@ -104,10 +108,10 @@ export function PickPrefsForm({
       <ChoiceGroup label="익숙한 시장" value={market} options={PICK_MARKETS} labels={PICK_MARKET_LABEL} onChange={setMarket} />
       <ChoiceGroup label="우선" value={aim} options={PICK_AIMS} labels={PICK_AIM_LABEL} onChange={setAim} />
       <p className="mt-2 text-[12px] leading-5 text-[#8b95a1]">
-        그 자산군 안에서 배당·이자를 볼지, 가격 상승을 볼지 고릅니다. 살 금액은 바꾸지 않습니다.
+        배당·이자 우선은 주식·부동산을 줄여 현금에 두고, 가격 상승 우선은 현금에서 주식·부동산으로 옮깁니다. 둘 다는 국면 비중 그대로입니다. 채권과 금은 바뀌지 않습니다.
       </p>
       <p className="mt-2 text-[12px] leading-5 text-[#8b95a1]">
-        한국 주식과 미국 주식 칸은 그대로입니다. 금, 채권, 부동산처럼 어느 시장에나 있는 상품만 이 기준으로 고릅니다.
+        익숙한 시장은 한국주식과 미국주식의 비율을 바꾸지 않습니다. 금, 채권, 부동산처럼 어느 시장에나 있는 상품만 이 기준으로 고릅니다.
       </p>
 
       <fieldset className="mt-5">

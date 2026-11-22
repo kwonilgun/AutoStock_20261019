@@ -74,14 +74,17 @@ export default async function HomePage() {
     <ViewFrame refreshMarks>
       {(view) => {
         const weights = view.targets;
+        const baseWeights = view.baseTargets;
         const groups = WEIGHT_GROUPS.map((group) => {
           const members = group.members.map((member) => ({
             label: member.label,
             weight: weights[member.sleeve],
+            baseWeight: baseWeights[member.sleeve],
           }));
           return {
             label: group.label,
             weight: members.reduce((sum, member) => sum + member.weight, 0),
+            baseWeight: members.reduce((sum, member) => sum + member.baseWeight, 0),
             members,
           };
         });
@@ -147,7 +150,7 @@ function GapBrief({ sleeves, hasAssets }: { sleeves: SleeveSnapshot[]; hasAssets
         </Link>
       </div>
       <p className="mt-1.5 text-[13px] leading-5 text-[#6b7684]">
-        지금 비중이 이번 달 목표에서 벗어난 폭입니다. 목표보다 많으면 과다, 적으면 부족입니다.
+        지금 비중이 내 목표에서 벗어난 폭입니다. 목표보다 많으면 과다, 적으면 부족입니다.
       </p>
       {hasAssets ? (
         <p className="mt-2 text-[15px] font-semibold tabular-nums">

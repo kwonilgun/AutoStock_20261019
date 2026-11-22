@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { pickPrefsColumns, readPickPrefs, type PickPrefs } from "@/lib/engine/pick-prefs";
 import { pickPlanWeeksOf, type PickPlanWeeks } from "@/lib/engine/pick-schedule";
 import { getCurrentUser } from "@/lib/server/session";
+import { forgetViews } from "@/lib/server/view-cache";
 
 export type SavePickPrefsResult =
   | { ok: true; message: string; prefs: PickPrefs; planWeeks: PickPlanWeeks }
@@ -31,6 +32,10 @@ export async function savePickPrefs(input: {
     where: { id: user.id },
     data: { ...pickPrefsColumns(parsed.prefs), pickPlanWeeks: planWeeks },
   });
+  forgetViews(user.id);
+  revalidatePath("/");
+  revalidatePath("/gap");
+  revalidatePath("/portfolio");
   revalidatePath("/picks");
   revalidatePath("/settings");
   return { ok: true, message: "추천 기준을 저장했습니다.", prefs: parsed.prefs, planWeeks };
