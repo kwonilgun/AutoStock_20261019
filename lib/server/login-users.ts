@@ -9,12 +9,16 @@ export type LoginUserRow = {
   pickUsed: number;
   createdAt: Date;
   lastLoginAt: Date | null;
+  lastSeenAt: Date | null;
+  /** 최근 15분 안에 화면을 연 회원. */
+  active: boolean;
   online: boolean;
 };
 
 export type LoginUsers = {
   loggedInCount: number;
   onlineCount: number;
+  activeCount: number;
   users: LoginUserRow[];
 };
 
@@ -34,6 +38,7 @@ async function backfillLastLogin() {
 export async function listLoginUsers(): Promise<LoginUsers> {
   await backfillLastLogin();
   const now = new Date();
+  const activeAfter = now.getTime() - 15 * 60 * 1000;
   const users = await prisma.user.findMany({
     where: { role: "user" },
     select: {
@@ -45,6 +50,7 @@ export async function listLoginUsers(): Promise<LoginUsers> {
       pickUsed: true,
       createdAt: true,
       lastLoginAt: true,
+      lastSeenAt: true,
       sessions: {
         where: { expiresAt: { gt: now } },
         select: { id: true },
@@ -63,12 +69,15 @@ export async function listLoginUsers(): Promise<LoginUsers> {
     pickUsed: user.pickUsed,
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,
+    lastSeenAt: user.lastSeenAt,
+    active: user.lastSeenAt != null && user.lastSeenAt.getTime() >= activeAfter,
     online: user.sessions.length > 0,
   }));
 
   return {
     loggedInCount: rows.filter((user) => user.lastLoginAt).length,
     onlineCount: rows.filter((user) => user.online).length,
+    activeCount: rows.filter((user) => user.active).length,
     users: rows,
   };
 }

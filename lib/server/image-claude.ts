@@ -35,8 +35,10 @@ async function adminImageText(body: unknown, label: string): Promise<string> {
     body: JSON.stringify(body),
   });
   const raw = await response.text();
-  console.log(`[${label}] response ${JSON.stringify({ status: response.status, chars: raw.length })}`);
-  if (!response.ok) throw new Error(`claude ${response.status}`);
+  if (!response.ok) {
+    console.log(`[${label}] ${response.status}`);
+    throw new Error(`claude ${response.status}`);
+  }
   let payload: unknown;
   try {
     payload = JSON.parse(raw) as unknown;

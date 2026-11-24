@@ -58,6 +58,7 @@ function redactSecrets(text: string): string {
 }
 
 async function postJson(url: string, headers: Record<string, string>, body: unknown, label = "advice"): Promise<unknown> {
+  const started = Date.now();
   const response = await fetch(url, {
     method: "POST",
     headers,
@@ -65,9 +66,25 @@ async function postJson(url: string, headers: Record<string, string>, body: unkn
     body: JSON.stringify(body),
   });
   const raw = await response.text();
-  console.log(`[${label}] response\n${JSON.stringify({ status: response.status, body: redactSecrets(raw).slice(0, 4000) })}`);
-  if (!response.ok) throw new Error(`advice model ${response.status}`);
+  const ms = Date.now() - started;
+  if (!response.ok) {
+    const detail = modelError(raw);
+    console.log(`[${label}] ${response.status} ${ms}ms${detail ? ` ${detail}` : ""}`);
+    throw new Error(`advice model ${response.status}`);
+  }
+  console.log(`[${label}] ${response.status} ${ms}ms ${raw.length}자`);
   return JSON.parse(raw) as unknown;
+}
+
+function modelError(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw) as { error?: { message?: unknown } };
+    const message = parsed.error?.message;
+    if (typeof message === "string" && message.trim()) return redactSecrets(message.trim()).slice(0, 160);
+  } catch {
+    return "";
+  }
+  return "";
 }
 
 /** 오늘 자문과 보유 가져오기가 같은 LM Studio 주소와 같은 필드로 접속한다. */
@@ -94,13 +111,7 @@ export async function askSpark(config: SparkModelConfig, systemPrompt: string, i
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (config.key) headers.Authorization = `Bearer ${config.key}`;
   const url = `${config.url}/api/v1/chat`;
-  const body = sparkChatBody(config.model, systemPrompt, input);
-  const requestLog =
-    label === "advice"
-      ? { url, model: config.model, key: config.key ? "(set)" : "(empty)", body }
-      : { url, model: config.model, key: config.key ? "(set)" : "(empty)", chars: input.length };
-  console.log(`[${label}] request\n${JSON.stringify(requestLog, null, label === "advice" ? 2 : 0)}`);
-  const payload = await postJson(url, headers, body, label);
+  const payload = await postJson(url, headers, sparkChatBody(config.model, systemPrompt, input), label);
   const content = sparkMessageText(payload) || openAiMessageText(payload);
   if (!content) throw new Error("advice model empty");
   return content;
@@ -125,9 +136,6 @@ export async function askClaude(
     "anthropic-version": "2023-06-01",
   };
   if (workspaceId) headers["anthropic-workspace-id"] = workspaceId;
-  console.log(
-    `[${label}] request\n${JSON.stringify({ provider: "anthropic", model, key: "(admin)", workspace: workspaceId ? "(set)" : "(empty)" })}`,
-  );
   const payload = await postJson("https://api.anthropic.com/v1/messages", headers, claudeAdviceBody(model, system, user), label);
   const content = anthropicMessageText(payload);
   if (!content) throw new Error("advice model empty");
@@ -137,7 +145,6 @@ export async function askClaude(
 export async function completeMember(provider: MemberProvider, apiKey: string, context: AdviceContext): Promise<string> {
   const model = memberModelName(provider);
   const user = adviceUserPrompt(context);
-  console.log(`[advice] request\n${JSON.stringify({ provider, model, key: "(member)" }, null, 2)}`);
   if (provider === "anthropic") {
     const payload = await postJson(
       "https://api.anthropic.com/v1/messages",

@@ -9,6 +9,7 @@ import { loginAllowed } from "@/lib/server/approval";
 
 const COOKIE = "egg_session";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const SEEN_GAP_MS = 5 * 60 * 1000;
 
 export type SessionUser = {
   id: string;
@@ -36,7 +37,7 @@ export async function createSession(userId: string) {
     }),
     prisma.user.update({
       where: { id: userId },
-      data: { lastLoginAt: now },
+      data: { lastLoginAt: now, lastSeenAt: now },
     }),
   ]);
   const jar = await cookies();
@@ -73,6 +74,12 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   if (!loginAllowed(session.user)) {
     await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
     return null;
+  }
+  const seenAt = session.user.lastSeenAt?.getTime() ?? 0;
+  if (Date.now() - seenAt > SEEN_GAP_MS) {
+    const now = new Date();
+    console.log(`[use] ${session.user.email}`);
+    void prisma.user.update({ where: { id: session.user.id }, data: { lastSeenAt: now } }).catch(() => undefined);
   }
   return {
     id: session.user.id,

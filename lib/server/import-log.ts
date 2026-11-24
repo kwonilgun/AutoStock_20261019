@@ -20,16 +20,22 @@ function importLine(input: unknown) {
     ok: entry.ok === true,
     message: redact(clip(entry.message, 800)),
     status: typeof entry.status === "number" && Number.isFinite(entry.status) ? entry.status : null,
-    detail: redact(clip(entry.detail, 4000)),
+    detail: redact(clip(entry.detail, 160)),
   };
 }
 
-/** 보유 가져오기 실패 원인. npm run dev 터미널에만 남기고, API 키와 긴 숫자는 지운다. */
-export async function logHoldingImport(input: unknown): Promise<void> {
-  console.log(`[holdings-import] ${JSON.stringify(importLine(input))}`);
+function logImport(label: string, input: unknown): void {
+  const line = importLine(input);
+  if (line.ok) return;
+  console.log(`[${label}] ${line.step} ${line.message || line.detail || "fail"}`);
 }
 
-/** 수익 이미지 가져오기 단계. npm run dev 터미널에만 남기고, API 키와 긴 숫자는 지운다. */
+/** 보유 가져오기 실패만 남긴다. API 키와 긴 숫자는 지운다. */
+export async function logHoldingImport(input: unknown): Promise<void> {
+  logImport("holdings-import", input);
+}
+
+/** 수익 이미지 가져오기 실패만 남긴다. API 키와 긴 숫자는 지운다. */
 export async function logIncomeImport(input: unknown): Promise<void> {
-  console.log(`[income-import] ${JSON.stringify(importLine(input))}`);
+  logImport("income-import", input);
 }

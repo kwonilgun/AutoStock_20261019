@@ -15,17 +15,9 @@ import {
   type PickScheduleWeek,
 } from "@/lib/engine/pick-schedule";
 import { PICK_LIMIT_MESSAGE, type PickQuota } from "@/lib/pick-engine";
-import { pickLogText } from "@/lib/pick-log";
 import { requestPick, requestPickPlan, requestPickReason } from "@/lib/server/pick-actions";
 import { savePickPlanWeeks } from "@/lib/server/pick-prefs-actions";
 import type { SavedPick } from "@/lib/server/pick-cache";
-import { logPick } from "@/lib/server/pick-log";
-
-function reportPick(entry: Record<string, unknown>): void {
-  const text = pickLogText(entry);
-  console.info(text);
-  void logPick(entry).catch(() => undefined);
-}
 
 function savedLabel(cachedAt: string | null): string | null {
   if (!cachedAt) return null;
@@ -95,18 +87,7 @@ export function PickPanel({
       setUsed(result.quota.used);
       setLimit(result.quota.limit);
     }
-    if (requestId.current !== id) {
-      reportPick({ step: "panel", refresh, ok: false, kind: "cancelled" });
-      return;
-    }
-    reportPick({
-      step: "panel",
-      refresh,
-      ok: result.ok,
-      kind: result.ok ? result.kind : "error",
-      message: result.ok ? "" : result.message,
-      items: result.ok && result.kind === "picks" ? result.items.length : 0,
-    });
+    if (requestId.current !== id) return;
     if (!result.ok) setError(result.message);
     else if (result.kind === "empty") {
       setEmpty(true);
@@ -130,13 +111,6 @@ export function PickPanel({
     setReasonPending(true);
     const result = await requestPickReason();
     if (reasonId.current !== id) return;
-    reportPick({
-      step: "reason",
-      ok: result.ok,
-      kind: result.ok ? "text" : "error",
-      message: result.ok ? "" : result.message,
-      chars: result.ok ? result.text.length : 0,
-    });
     if (!result.ok) setReasonError(result.message);
     else setReason(result.text);
     setReasonPending(false);
@@ -149,13 +123,6 @@ export function PickPanel({
     setPlanPending(true);
     const result = await requestPickPlan(next);
     if (planId.current !== id) return;
-    reportPick({
-      step: "plan",
-      ok: result.ok,
-      kind: result.ok ? "schedule" : "error",
-      message: result.ok ? "" : result.message,
-      days: result.ok ? result.weeks.length : 0,
-    });
     if (!result.ok) setPlanError(result.message);
     else {
       setSpan(result.span);
@@ -171,17 +138,7 @@ export function PickPanel({
 
   useEffect(() => {
     if (!prefs) return;
-    if (initial) {
-      reportPick({
-        step: "panel",
-        ok: true,
-        kind: "initial",
-        model: initial.engine,
-        buys: initial.snapshot.buys.length,
-        items: initial.items.length,
-      });
-      return;
-    }
+    if (initial) return;
     if (quota.used >= quota.limit) return;
     void load(false);
     return () => {

@@ -2,7 +2,7 @@ import { unstable_rethrow } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { parseStoredPick, serializeStoredPick, type StoredPick } from "@/lib/engine/pick-parse";
 import { assignedPickEngine, pickVisibleCache } from "@/lib/pick-engine";
-import { pickErrorDetail, pickLogText } from "@/lib/pick-log";
+import { logPickLine, pickErrorDetail } from "@/lib/pick-log";
 import { readPickClaudeCredential } from "@/lib/server/pick-llm";
 import { getCurrentUser } from "@/lib/server/session";
 
@@ -46,28 +46,16 @@ export async function loadSavedPick(): Promise<SavedPick | null> {
   try {
     const user = await getCurrentUser();
     if (!user || user.role === "admin" || !user.pickEnabled) {
-      console.log(pickLogText({ step: "page", ok: false, kind: user?.pickEnabled === false ? "disabled" : "no-member" }));
+      logPickLine({ step: "page", ok: false, kind: user?.pickEnabled === false ? "disabled" : "no-member" });
       return null;
     }
     const engine = assignedPickEngine();
     const saved = await readPickCache(user.id);
     const claudeReady = Boolean(await readPickClaudeCredential());
-    const matched = pickVisibleCache(saved, engine, claudeReady);
-    console.log(
-      pickLogText({
-        step: "page",
-        ok: Boolean(matched),
-        kind: matched ? "cached" : "miss",
-        model: engine,
-        buys: matched?.snapshot.buys.length ?? 0,
-        items: matched?.items.length ?? 0,
-        sleeves: matched?.snapshot.buys.map((buy) => buy.sleeve),
-      }),
-    );
-    return matched;
+    return pickVisibleCache(saved, engine, claudeReady);
   } catch (error) {
     unstable_rethrow(error);
-    console.log(pickLogText({ step: "page", ok: false, kind: "read-failed", detail: pickErrorDetail(error) }));
+    logPickLine({ step: "page", ok: false, kind: "read-failed", detail: pickErrorDetail(error) });
     return null;
   }
 }

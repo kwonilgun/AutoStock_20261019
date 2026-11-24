@@ -21,6 +21,8 @@ model User {
   investorStyle String @default("income")
   /// 마지막으로 로그인한 시각. 로그아웃해도 남는다.
   lastLoginAt  DateTime?
+  /// 화면을 실제로 연 시각. 5분에 한 번만 갱신한다.
+  lastSeenAt   DateTime?
   /// 관리자 승인. 꺼져 있으면 가입은 되어 있어도 로그인할 수 없다. 새 회원은 꺼짐.
   approved     Boolean     @default(false)
   /// 추천 종목 모델. Claude가 기본이다.

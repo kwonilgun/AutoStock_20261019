@@ -47,6 +47,7 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
     return { message: "관리자 승인 전에는 로그인할 수 없습니다. 승인 후 다시 시도해 주세요." };
   }
   await createSession(user.id);
+  console.log(`[use] ${user.email} 로그인`);
   if (user.role === "admin") redirect(user.mustChangePassword ? "/admin/password" : "/admin");
   redirect("/");
 }

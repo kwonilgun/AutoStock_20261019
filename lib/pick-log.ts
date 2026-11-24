@@ -9,36 +9,28 @@ function redact(value: string): string {
   return redactHoldingsSecret(value).replace(/\d{10,}/g, "[숫자]");
 }
 
-function sleeves(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const rows = value.map((item) => clip(item, 20)).filter(Boolean);
-  return rows.length > 0 ? rows.slice(0, 12) : undefined;
-}
+const QUIET_STEPS = new Set(["prepare", "finish", "page", "panel", "spark", "claude"]);
 
-/** 추천 종목 한 단계. 키와 워크스페이스 ID는 넣지 않는다. */
+/** 실패한 추천 단계만 한 줄로 남긴다. 성공 과정의 본문과 중간 단계는 찍지 않는다. */
 export function pickLogText(input: unknown): string {
   const entry = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
-  const line: Record<string, unknown> = {
-    step: clip(entry.step, 40) || "unknown",
-  };
-  if (entry.refresh === true || entry.refresh === false) line.refresh = entry.refresh;
+  const step = clip(entry.step, 40) || "unknown";
+  if (QUIET_STEPS.has(step) && entry.ok !== false) return "";
+  if (entry.kind === "assigned" || entry.kind === "cached" || entry.kind === "request") return "";
+  const line: Record<string, unknown> = { step };
   if (typeof entry.ok === "boolean") line.ok = entry.ok;
   const kind = clip(entry.kind, 40);
   if (kind) line.kind = kind;
-  const message = redact(clip(entry.message, 400));
+  const message = redact(clip(entry.message, 160));
   if (message) line.message = message;
-  if (typeof entry.buys === "number" && Number.isFinite(entry.buys)) line.buys = entry.buys;
-  const names = sleeves(entry.sleeves);
-  if (names) line.sleeves = names;
-  if (typeof entry.items === "number" && Number.isFinite(entry.items)) line.items = entry.items;
-  const model = clip(entry.model, 80);
-  if (model) line.model = model;
-  if (typeof entry.chars === "number" && Number.isFinite(entry.chars)) line.chars = entry.chars;
-  if (typeof entry.hasKey === "boolean") line.hasKey = entry.hasKey;
-  if (typeof entry.hasWorkspace === "boolean") line.hasWorkspace = entry.hasWorkspace;
-  const detail = redact(clip(entry.detail, 1500));
+  const detail = redact(clip(entry.detail, 160));
   if (detail) line.detail = detail;
   return `[pick] ${JSON.stringify(line)}`;
+}
+
+export function logPickLine(input: unknown): void {
+  const text = pickLogText(input);
+  if (text) console.log(text);
 }
 
 export function pickErrorDetail(error: unknown): string {

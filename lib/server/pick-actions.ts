@@ -10,7 +10,7 @@ import { buildPickWeekPlan, pickPlanWeeksOf, type PickPlanWeeks, type PickSchedu
 import { emptyMessage } from "@/lib/engine/rebalance";
 import { seoulDay } from "@/lib/format";
 import { PICK_DISABLED_MESSAGE, PICK_LIMIT_MESSAGE, type PickEngine, type PickQuota } from "@/lib/pick-engine";
-import { pickErrorDetail, pickLogText } from "@/lib/pick-log";
+import { logPickLine, pickErrorDetail } from "@/lib/pick-log";
 import { askClaude, askSpark, memberModelName, readSparkConfig } from "@/lib/server/advice-remote";
 import { clearPickCache, clearPickReason, readPickCache, writePickCache } from "@/lib/server/pick-cache";
 import { giveBackPickUse, readPickQuota, takePickUse } from "@/lib/server/pick-quota";
@@ -34,24 +34,12 @@ async function preparePick(refresh: boolean, engine: PickEngine): Promise<PickPr
   try {
     const user = await getCurrentUser();
     if (!user || user.role === "admin") {
-      console.log(pickLogText({ step: "prepare", refresh, ok: false, kind: "no-member", model: engine }));
+      logPickLine({ step: "prepare", refresh, ok: false, kind: "no-member", model: engine });
       return { ok: false, message: "추천 종목을 받지 못했습니다." };
     }
     if (!refresh) {
       const cached = await readPickCache(user.id);
       if (cached && cached.engine === engine) {
-        console.log(
-          pickLogText({
-            step: "prepare",
-            refresh,
-            ok: true,
-            kind: "cached",
-            model: engine,
-            buys: cached.snapshot.buys.length,
-            items: cached.items.length,
-            sleeves: cached.snapshot.buys.map((buy) => buy.sleeve),
-          }),
-        );
         return {
           ok: true,
           kind: "cached",
@@ -64,33 +52,22 @@ async function preparePick(refresh: boolean, engine: PickEngine): Promise<PickPr
       }
     }
     if (!user.pickPrefs) {
-      console.log(pickLogText({ step: "prepare", refresh, ok: false, kind: "no-prefs" }));
+      logPickLine({ step: "prepare", refresh, ok: false, kind: "no-prefs" });
       return { ok: false, message: PICK_PREFS_ASK_MESSAGE };
     }
     const view = await getView();
     const blocked = emptyMessage(view.result);
     if (blocked) {
-      console.log(pickLogText({ step: "prepare", refresh, ok: false, kind: "blocked", message: blocked }));
+      logPickLine({ step: "prepare", refresh, ok: false, kind: "blocked", message: blocked });
       return { ok: false, message: blocked };
     }
     const snapshot = pickSnapshot(view.phase, view.holdings, view.result, view.portfolio.usdKrw, user.pickPrefs);
     if (snapshot.buys.length === 0) {
       if (refresh) await clearPickCache(user.id);
-      console.log(pickLogText({ step: "prepare", refresh, ok: true, kind: "empty", buys: 0 }));
+      logPickLine({ step: "prepare", refresh, ok: true, kind: "empty", buys: 0 });
       return { ok: true, kind: "empty" };
     }
     const model = engine === "spark" ? (readSparkConfig()?.model ?? "Qwen") : memberModelName("anthropic");
-    console.log(
-      pickLogText({
-        step: "prepare",
-        refresh,
-        ok: true,
-        kind: "prompt",
-        model,
-        buys: snapshot.buys.length,
-        sleeves: snapshot.buys.map((buy) => buy.sleeve),
-      }),
-    );
     return {
       ok: true,
       kind: "prompt",
@@ -101,7 +78,7 @@ async function preparePick(refresh: boolean, engine: PickEngine): Promise<PickPr
     };
   } catch (error) {
     unstable_rethrow(error);
-    console.log(pickLogText({ step: "prepare", refresh, ok: false, kind: "error", detail: pickErrorDetail(error) }));
+    logPickLine({ step: "prepare", refresh, ok: false, kind: "error", detail: pickErrorDetail(error) });
     return { ok: false, message: "추천 종목을 받지 못했습니다." };
   }
 }
@@ -111,47 +88,37 @@ async function finishPick(raw: string | null, engine: PickEngine): Promise<PickR
   try {
     const user = await getCurrentUser();
     if (!user || user.role === "admin") {
-      console.log(pickLogText({ step: "finish", ok: false, kind: "no-member" }));
+      logPickLine({ step: "finish", ok: false, kind: "no-member" });
       return { ok: false, message: "추천 종목을 받지 못했습니다." };
     }
     if (!user.pickPrefs) {
-      console.log(pickLogText({ step: "finish", ok: false, kind: "no-prefs" }));
+      logPickLine({ step: "finish", ok: false, kind: "no-prefs" });
       return { ok: false, message: PICK_PREFS_ASK_MESSAGE };
     }
     const view = await getView();
     const blocked = emptyMessage(view.result);
     if (blocked) {
-      console.log(pickLogText({ step: "finish", ok: false, kind: "blocked", message: blocked }));
+      logPickLine({ step: "finish", ok: false, kind: "blocked", message: blocked });
       return { ok: false, message: blocked };
     }
     const snapshot = pickSnapshot(view.phase, view.holdings, view.result, view.portfolio.usdKrw, user.pickPrefs);
     if (snapshot.buys.length === 0) {
       await clearPickCache(user.id);
       revalidatePath("/picks");
-      console.log(pickLogText({ step: "finish", ok: true, kind: "empty", buys: 0, chars: raw?.length ?? 0 }));
+      logPickLine({ step: "finish", ok: true, kind: "empty", buys: 0, chars: raw?.length ?? 0 });
       return { ok: true, kind: "empty" };
     }
     const items = parsePickReply(raw, snapshot.buys);
-    console.log(
-      pickLogText({
-        step: "finish",
-        ok: items.length > 0,
-        kind: items.length > 0 ? "picks" : "unreadable",
-        model: engine,
-        buys: snapshot.buys.length,
-        items: items.length,
-        sleeves: snapshot.buys.map((buy) => buy.sleeve),
-        chars: raw?.length ?? 0,
-        detail: raw?.slice(0, 1500) ?? "",
-      }),
-    );
-    if (items.length === 0) return { ok: false, message: "추천 종목을 읽지 못했습니다." };
+    if (items.length === 0) {
+      logPickLine({ step: "finish", ok: false, kind: "unreadable" });
+      return { ok: false, message: "추천 종목을 읽지 못했습니다." };
+    }
     const cachedAt = await writePickCache(user.id, { snapshot, items, engine });
     revalidatePath("/picks");
     return { ok: true, kind: "picks", snapshot, items, cachedAt, reason: null, plan: null };
   } catch (error) {
     unstable_rethrow(error);
-    console.log(pickLogText({ step: "finish", ok: false, kind: "error", detail: pickErrorDetail(error) }));
+    logPickLine({ step: "finish", ok: false, kind: "error", detail: pickErrorDetail(error) });
     return { ok: false, message: "추천 종목을 받지 못했습니다." };
   }
 }
@@ -189,7 +156,7 @@ function cachedOrEmpty(prep: PickPrep): PickResult | null {
 async function chargeOrStop(userId: string): Promise<PickResult | null> {
   const taken = await takePickUse(userId);
   if (taken) return null;
-  console.log(pickLogText({ step: "request", ok: false, kind: "limited" }));
+  logPickLine({ step: "request", ok: false, kind: "limited" });
   return { ok: false, message: PICK_LIMIT_MESSAGE };
 }
 
@@ -200,7 +167,7 @@ async function runSparkPick(refresh: boolean): Promise<PickResult> {
   if (!prep.ok || prep.kind !== "prompt") return { ok: false, message: "추천 종목을 받지 못했습니다." };
   const config = readSparkConfig();
   if (!config) {
-    console.log(pickLogText({ step: "spark", refresh, ok: false, kind: "unconfigured" }));
+    logPickLine({ step: "spark", refresh, ok: false, kind: "unconfigured" });
     return { ok: false, message: "Spark 주소와 Qwen 모델 이름이 없습니다." };
   }
   const user = await getCurrentUser();
@@ -209,7 +176,7 @@ async function runSparkPick(refresh: boolean): Promise<PickResult> {
   if (denied) return denied;
   if (refresh) await clearPickReason(user.id);
   try {
-    console.log(pickLogText({ step: "spark", refresh, kind: "request", model: config.model, buys: prep.snapshot.buys.length }));
+    logPickLine({ step: "spark", refresh, kind: "request", model: config.model, buys: prep.snapshot.buys.length });
     const text = await askSpark(config, prep.system, prep.user, "pick");
     const result = await finishPick(text, "spark");
     if (!result.ok) await giveBackPickUse(user.id);
@@ -217,7 +184,7 @@ async function runSparkPick(refresh: boolean): Promise<PickResult> {
   } catch (error) {
     await giveBackPickUse(user.id);
     unstable_rethrow(error);
-    console.log(pickLogText({ step: "spark", refresh, ok: false, kind: "error", model: config.model, detail: pickErrorDetail(error) }));
+    logPickLine({ step: "spark", refresh, ok: false, kind: "error", model: config.model, detail: pickErrorDetail(error) });
     return { ok: false, message: sparkFailureMessage(error, config.url) };
   }
 }
@@ -229,7 +196,7 @@ async function runClaudePick(refresh: boolean): Promise<PickResult> {
   if (!prep.ok || prep.kind !== "prompt") return { ok: false, message: "추천 종목을 받지 못했습니다." };
   const credential = await readPickClaudeCredential();
   if (!credential) {
-    console.log(pickLogText({ step: "claude", refresh, ok: true, kind: "fallback-spark" }));
+    logPickLine({ step: "claude", refresh, ok: true, kind: "fallback-spark" });
     return runSparkPick(refresh);
   }
   const user = await getCurrentUser();
@@ -238,7 +205,7 @@ async function runClaudePick(refresh: boolean): Promise<PickResult> {
   if (denied) return denied;
   if (refresh) await clearPickReason(user.id);
   try {
-    console.log(pickLogText({ step: "claude", refresh, kind: "request", model: prep.model, buys: prep.snapshot.buys.length }));
+    logPickLine({ step: "claude", refresh, kind: "request", model: prep.model, buys: prep.snapshot.buys.length });
     const text = await askClaude(credential.apiKey, credential.workspaceId, prep.model, prep.system, prep.user, "pick");
     const result = await finishPick(text, "claude");
     if (!result.ok) await giveBackPickUse(user.id);
@@ -246,7 +213,7 @@ async function runClaudePick(refresh: boolean): Promise<PickResult> {
   } catch (error) {
     await giveBackPickUse(user.id);
     unstable_rethrow(error);
-    console.log(pickLogText({ step: "claude", refresh, ok: false, kind: "error", model: prep.model, detail: pickErrorDetail(error) }));
+    logPickLine({ step: "claude", refresh, ok: false, kind: "error", model: prep.model, detail: pickErrorDetail(error) });
     return { ok: false, message: "추천 종목을 받지 못했습니다." };
   }
 }
@@ -258,39 +225,29 @@ export async function requestPickReason(): Promise<PickReasonResult> {
   try {
     const user = await getCurrentUser();
     if (!user || user.role === "admin") {
-      console.log(pickLogText({ step: "reason", ok: false, kind: "no-member" }));
+      logPickLine({ step: "reason", ok: false, kind: "no-member" });
       return { ok: false, message: "추천 이유를 받지 못했습니다." };
     }
     if (!user.pickEnabled) {
-      console.log(pickLogText({ step: "reason", ok: false, kind: "disabled" }));
+      logPickLine({ step: "reason", ok: false, kind: "disabled" });
       return { ok: false, message: PICK_DISABLED_MESSAGE };
     }
     const cached = await readPickCache(user.id);
     if (!cached || cached.items.length === 0) {
-      console.log(pickLogText({ step: "reason", ok: false, kind: "empty", items: cached?.items.length ?? 0 }));
+      logPickLine({ step: "reason", ok: false, kind: "empty", items: cached?.items.length ?? 0 });
       return { ok: false, message: "설명할 추천 종목이 없습니다." };
     }
     if (cached.reason) {
-      console.log(pickLogText({ step: "reason", ok: true, kind: "cached", items: cached.items.length, chars: cached.reason.length }));
+      logPickLine({ step: "reason", ok: true, kind: "cached", items: cached.items.length, chars: cached.reason.length });
       return { ok: true, text: cached.reason };
     }
     const credential = await readPickClaudeCredential();
     const spark = credential ? null : readSparkConfig();
     if (!credential && !spark) {
-      console.log(pickLogText({ step: "reason", ok: false, kind: "unconfigured" }));
+      logPickLine({ step: "reason", ok: false, kind: "unconfigured" });
       return { ok: false, message: "추천 종목용 Claude가 아직 설정되지 않았습니다." };
     }
     const model = credential ? memberModelName("anthropic") : spark!.model;
-    console.log(
-      pickLogText({
-        step: "reason",
-        kind: "request",
-        model,
-        buys: cached.snapshot.buys.length,
-        items: cached.items.length,
-        sleeves: cached.snapshot.buys.map((buy) => buy.sleeve),
-      }),
-    );
     const raw = credential
       ? await askClaude(
           credential.apiKey,
@@ -302,21 +259,15 @@ export async function requestPickReason(): Promise<PickReasonResult> {
         )
       : await askSpark(spark!, PICK_REASON_SYSTEM_PROMPT, pickReasonUserPrompt(cached.snapshot, cached.items), "pick-reason");
     const text = parsePickReason(raw);
-    console.log(
-      pickLogText({
-        step: "reason",
-        ok: text.length > 0,
-        kind: text ? "text" : "unreadable",
-        model,
-        chars: raw.length,
-      }),
-    );
-    if (!text) return { ok: false, message: "추천 이유를 읽지 못했습니다." };
+    if (!text) {
+      logPickLine({ step: "reason", ok: false, kind: "unreadable" });
+      return { ok: false, message: "추천 이유를 읽지 못했습니다." };
+    }
     const fresh = await readPickCache(user.id);
     const sameList = fresh ? pickListKey(fresh) === pickListKey(cached) : false;
     if (fresh?.reason && sameList) return { ok: true, text: fresh.reason };
     if (!fresh || !sameList || fresh.cachedAt !== cached.cachedAt) {
-      console.log(pickLogText({ step: "reason", ok: false, kind: "stale", items: fresh?.items.length ?? 0 }));
+      logPickLine({ step: "reason", ok: false, kind: "stale", items: fresh?.items.length ?? 0 });
       return { ok: false, message: "추천 종목이 바뀌어 이유를 저장하지 않았습니다." };
     }
     await writePickCache(user.id, {
@@ -330,7 +281,7 @@ export async function requestPickReason(): Promise<PickReasonResult> {
     return { ok: true, text };
   } catch (error) {
     unstable_rethrow(error);
-    console.log(pickLogText({ step: "reason", ok: false, kind: "error", detail: pickErrorDetail(error) }));
+    logPickLine({ step: "reason", ok: false, kind: "error", detail: pickErrorDetail(error) });
     return { ok: false, message: "추천 이유를 받지 못했습니다." };
   }
 }
@@ -343,16 +294,16 @@ export async function requestPickPlan(span: number): Promise<PickPlanResult> {
   try {
     const user = await getCurrentUser();
     if (!user || user.role === "admin") {
-      console.log(pickLogText({ step: "plan", ok: false, kind: "no-member" }));
+      logPickLine({ step: "plan", ok: false, kind: "no-member" });
       return { ok: false, message: "향후 계획을 받지 못했습니다." };
     }
     if (!user.pickEnabled) {
-      console.log(pickLogText({ step: "plan", ok: false, kind: "disabled" }));
+      logPickLine({ step: "plan", ok: false, kind: "disabled" });
       return { ok: false, message: PICK_DISABLED_MESSAGE };
     }
     const cached = await readPickCache(user.id);
     if (!cached || cached.items.length === 0) {
-      console.log(pickLogText({ step: "plan", ok: false, kind: "empty", items: cached?.items.length ?? 0 }));
+      logPickLine({ step: "plan", ok: false, kind: "empty", items: cached?.items.length ?? 0 });
       return { ok: false, message: "계획을 적을 추천 종목이 없습니다." };
     }
     const view = await getView();
@@ -364,21 +315,10 @@ export async function requestPickPlan(span: number): Promise<PickPlanResult> {
       fromDay: seoulDay(),
       weeks,
     });
-    console.log(
-      pickLogText({
-        step: "plan",
-        ok: true,
-        kind: "schedule",
-        buys: cached.snapshot.buys.length,
-        items: cached.items.length,
-        days: plan.length,
-        sleeves: [...sells.map((sell) => sell.sleeve), ...cached.snapshot.buys.map((buy) => buy.sleeve)],
-      }),
-    );
     return { ok: true, weeks: plan, span: weeks };
   } catch (error) {
     unstable_rethrow(error);
-    console.log(pickLogText({ step: "plan", ok: false, kind: "error", detail: pickErrorDetail(error) }));
+    logPickLine({ step: "plan", ok: false, kind: "error", detail: pickErrorDetail(error) });
     return { ok: false, message: "향후 계획을 받지 못했습니다." };
   }
 }
@@ -388,11 +328,12 @@ export async function requestPick(refresh: boolean): Promise<PickResult> {
   const user = await getCurrentUser();
   if (!user || user.role === "admin") return { ok: false, message: "추천 종목을 받지 못했습니다." };
   if (!user.pickEnabled) {
-    console.log(pickLogText({ step: "request", refresh, ok: false, kind: "disabled" }));
+    logPickLine({ step: "request", refresh, ok: false, kind: "disabled" });
     return { ok: false, message: PICK_DISABLED_MESSAGE };
   }
-  console.log(pickLogText({ step: "request", refresh, kind: "assigned", model: "claude" }));
+  const started = Date.now();
   const result = await runClaudePick(refresh);
+  console.log(`[use] ${user.email} 추천 ${result.ok ? "ok" : "fail"} ${Date.now() - started}ms`);
   const quota = await readPickQuota(user.id);
   return { ...result, quota };
 }
