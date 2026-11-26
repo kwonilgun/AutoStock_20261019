@@ -41,7 +41,7 @@ export async function clearPickReason(userId: string): Promise<void> {
   });
 }
 
-/** 화면을 열 때 보여줄 저장본. Claude로 받은 저장본을 돌려준다. */
+/** 화면을 열 때 보여줄 저장본. 설정에서 고른 모델로 받은 저장본을 돌려준다. */
 export async function loadSavedPick(): Promise<SavedPick | null> {
   try {
     const user = await getCurrentUser();
@@ -49,7 +49,7 @@ export async function loadSavedPick(): Promise<SavedPick | null> {
       logPickLine({ step: "page", ok: false, kind: user?.pickEnabled === false ? "disabled" : "no-member" });
       return null;
     }
-    const engine = assignedPickEngine();
+    const engine = assignedPickEngine(user.pickEngine);
     const saved = await readPickCache(user.id);
     const claudeReady = Boolean(await readPickClaudeCredential());
     return pickVisibleCache(saved, engine, claudeReady);

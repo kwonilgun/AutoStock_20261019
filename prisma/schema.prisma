@@ -25,8 +25,10 @@ model User {
   lastSeenAt   DateTime?
   /// 관리자 승인. 꺼져 있으면 가입은 되어 있어도 로그인할 수 없다. 새 회원은 꺼짐.
   approved     Boolean     @default(false)
-  /// 추천 종목 모델. Claude가 기본이다.
+  /// Ai-추천 종목 모델. claude 또는 spark. 사용자가 설정에서 고른다. spark는 서버의 Qwen이다.
   pickEngine   String      @default("claude")
+  /// 목표 비중 모델. claude 또는 spark. 비중 숫자는 국면 표와 우선으로 계산하고, 이 값은 그 계정이 고른 모델이다.
+  weightEngine String      @default("claude")
   /// 추천종목 버튼. 꺼져 있으면 실행하지 않는다. 새 회원은 꺼짐.
   pickEnabled  Boolean     @default(false)
   /// Ai-종목추천을 새로 받을 수 있는 횟수. 저장본을 다시 보는 것은 세지 않는다. 기본은 1이다.

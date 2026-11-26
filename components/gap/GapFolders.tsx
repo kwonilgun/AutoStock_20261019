@@ -121,14 +121,13 @@ function MemberLine({ sleeve, color }: { sleeve: GapView; color: string }) {
           <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
           <span className="truncate text-[14px] font-medium text-[#4e5968]">{sleeve.label}</span>
         </span>
-        <span className={`shrink-0 text-[14px] font-semibold tabular-nums ${gapTone(sleeve.status)}`}>{formatPp(sleeve.gapPp)}</span>
+        <span className="shrink-0 text-[14px] font-semibold tabular-nums text-[#4e5968]">{formatPp(sleeve.gapPp)}</span>
       </div>
       <p className="mt-1 pl-3.5 text-[13px] font-semibold tabular-nums text-[#191f28]">{won(sleeve.currentKrw)}</p>
       <p className="mt-0.5 pl-3.5 text-[12px] leading-5 text-[#8b95a1]">
         현재 {formatPercent(sleeve.currentWeight)} · 목표 {formatPercent(sleeve.targetWeight)}
-        {baseNote(sleeve) ? ` · ${baseNote(sleeve)}` : ""} · {STATUS_LABEL[sleeve.status]}
+        {baseNote(sleeve) ? ` · ${baseNote(sleeve)}` : ""}
       </p>
-      <p className={`mt-0.5 pl-3.5 text-[12px] ${gapTone(sleeve.status)}`}>{gapMoney(sleeve)}</p>
       <div className="pl-3.5">
         <WeightBar weight={sleeve.currentWeight} target={sleeve.targetWeight} color={color} />
       </div>
@@ -148,7 +147,7 @@ export function GapFolders({ groups }: { groups: GapFolder[] }) {
     <section className="rounded-[22px] bg-white px-5 py-5">
       <h2 className="text-[17px] font-bold text-[#191f28]">자산별 괴리</h2>
       <p className="mt-1 text-[13px] leading-5 text-[#8b95a1]">
-        그룹을 누르면 세부 자산이 펼쳐집니다. 막대는 현재 비중, 눈금은 내 목표입니다. 국면 표와 다르면 기준이 함께 보입니다.
+        과다와 부족은 주식·채권·자산·현금 합계로 봅니다. 그룹을 누르면 안의 비중이 펼쳐집니다. 막대는 현재 비중, 눈금은 내 목표입니다.
       </p>
       <ul>
         {groups.map((group) => {

@@ -196,8 +196,8 @@ async function runClaudePick(refresh: boolean): Promise<PickResult> {
   if (!prep.ok || prep.kind !== "prompt") return { ok: false, message: "추천 종목을 받지 못했습니다." };
   const credential = await readPickClaudeCredential();
   if (!credential) {
-    logPickLine({ step: "claude", refresh, ok: true, kind: "fallback-spark" });
-    return runSparkPick(refresh);
+    logPickLine({ step: "claude", refresh, ok: false, kind: "unconfigured" });
+    return { ok: false, message: "추천 종목용 Claude가 아직 설정되지 않았습니다." };
   }
   const user = await getCurrentUser();
   if (!user) return { ok: false, message: "추천 종목을 받지 못했습니다." };
@@ -218,9 +218,24 @@ async function runClaudePick(refresh: boolean): Promise<PickResult> {
   }
 }
 
+async function askPickSpark(system: string, user: string, label: string): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
+  const config = readSparkConfig();
+  if (!config) return { ok: false, message: "Spark 주소와 Qwen 모델 이름이 없습니다." };
+  return { ok: true, text: await askSpark(config, system, user, label) };
+}
+
+async function askPickClaude(system: string, user: string, label: string): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
+  const credential = await readPickClaudeCredential();
+  if (!credential) return { ok: false, message: "추천 종목용 Claude가 아직 설정되지 않았습니다." };
+  return {
+    ok: true,
+    text: await askClaude(credential.apiKey, credential.workspaceId, memberModelName("anthropic"), system, user, label),
+  };
+}
+
 export type PickReasonResult = { ok: true; text: string } | { ok: false; message: string };
 
-/** 화면에 저장된 추천과 괴리로 이유를 받는다. Claude 키가 없으면 Spark에 묻는다. */
+/** 저장된 추천을 만든 모델로 이유를 받는다. Spark면 서버의 Qwen이다. */
 export async function requestPickReason(): Promise<PickReasonResult> {
   try {
     const user = await getCurrentUser();
@@ -241,23 +256,16 @@ export async function requestPickReason(): Promise<PickReasonResult> {
       logPickLine({ step: "reason", ok: true, kind: "cached", items: cached.items.length, chars: cached.reason.length });
       return { ok: true, text: cached.reason };
     }
-    const credential = await readPickClaudeCredential();
-    const spark = credential ? null : readSparkConfig();
-    if (!credential && !spark) {
-      logPickLine({ step: "reason", ok: false, kind: "unconfigured" });
-      return { ok: false, message: "추천 종목용 Claude가 아직 설정되지 않았습니다." };
+    const prompt = pickReasonUserPrompt(cached.snapshot, cached.items);
+    const asked =
+      cached.engine === "spark"
+        ? await askPickSpark(PICK_REASON_SYSTEM_PROMPT, prompt, "pick-reason")
+        : await askPickClaude(PICK_REASON_SYSTEM_PROMPT, prompt, "pick-reason");
+    if (!asked.ok) {
+      logPickLine({ step: "reason", ok: false, kind: "unconfigured", model: cached.engine });
+      return asked;
     }
-    const model = credential ? memberModelName("anthropic") : spark!.model;
-    const raw = credential
-      ? await askClaude(
-          credential.apiKey,
-          credential.workspaceId,
-          model,
-          PICK_REASON_SYSTEM_PROMPT,
-          pickReasonUserPrompt(cached.snapshot, cached.items),
-          "pick-reason",
-        )
-      : await askSpark(spark!, PICK_REASON_SYSTEM_PROMPT, pickReasonUserPrompt(cached.snapshot, cached.items), "pick-reason");
+    const raw = asked.text;
     const text = parsePickReason(raw);
     if (!text) {
       logPickLine({ step: "reason", ok: false, kind: "unreadable" });
@@ -323,7 +331,7 @@ export async function requestPickPlan(span: number): Promise<PickPlanResult> {
   }
 }
 
-/** 추천 종목은 Claude로 받는다. 모델은 인자로 받지 않는다. */
+/** 설정에서 고른 모델로 추천 종목을 받는다. Spark는 서버의 Qwen이다. */
 export async function requestPick(refresh: boolean): Promise<PickResult> {
   const user = await getCurrentUser();
   if (!user || user.role === "admin") return { ok: false, message: "추천 종목을 받지 못했습니다." };
@@ -332,7 +340,7 @@ export async function requestPick(refresh: boolean): Promise<PickResult> {
     return { ok: false, message: PICK_DISABLED_MESSAGE };
   }
   const started = Date.now();
-  const result = await runClaudePick(refresh);
+  const result = user.pickEngine === "spark" ? await runSparkPick(refresh) : await runClaudePick(refresh);
   console.log(`[use] ${user.email} 추천 ${result.ok ? "ok" : "fail"} ${Date.now() - started}ms`);
   const quota = await readPickQuota(user.id);
   return { ...result, quota };

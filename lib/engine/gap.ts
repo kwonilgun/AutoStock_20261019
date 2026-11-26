@@ -125,3 +125,69 @@ function combineBonds(parts: SleeveSnapshot[]): GapView {
     guardNote: notes[0] ?? null,
   };
 }
+
+/** 과다·부족을 매기는 단위. 안의 종목은 비중만 보여주고 판단은 이 합계로 한다. */
+export const GAP_BUCKETS: { label: string; sleeves: Sleeve[] }[] = [
+  { label: "주식", sleeves: ["US_EQUITY", "KR_EQUITY"] },
+  { label: "채권", sleeves: ["BOND_10Y", "BOND_30Y"] },
+  { label: "자산", sleeves: ["GOLD", "BTC", "REIT"] },
+  { label: "현금", sleeves: ["KRW_CASH", "USD_CASH"] },
+];
+
+export type GapBucket = {
+  label: string;
+  summary: GapView;
+  members: GapView[];
+};
+
+/** 주식·채권·자산·현금 합계로 과다·부족을 판단한다. 비트코인은 보유와 목표가 없으면 목록에서 뺀다. */
+export function gapBuckets(sleeves: SleeveSnapshot[], baseTargets?: Partial<Record<Sleeve, number>>): GapBucket[] {
+  const bySleeve = new Map(sleeves.map((item) => [item.sleeve, item]));
+  return GAP_BUCKETS.flatMap((bucket) => {
+    const members = bucket.sleeves.flatMap((sleeve) => {
+      const snapshot = bySleeve.get(sleeve);
+      if (!snapshot) return [];
+      if (sleeve === "BTC" && snapshot.currentKrw <= 0 && snapshot.targetWeight <= 0) return [];
+      return [toGapView(snapshot, baseTargets?.[sleeve])];
+    });
+    if (members.length === 0) return [];
+    return [{ label: bucket.label, summary: combineGap(bucket.label, bucket.sleeves[0], members), members }];
+  });
+}
+
+function toGapView(sleeve: SleeveSnapshot, baseWeight?: number): GapView {
+  return {
+    id: sleeve.sleeve,
+    label: SLEEVE_LABEL[sleeve.sleeve],
+    colorSleeve: sleeve.sleeve,
+    currentKrw: sleeve.currentKrw,
+    currentWeight: sleeve.currentWeight,
+    targetWeight: sleeve.targetWeight,
+    targetKrw: sleeve.targetKrw,
+    gapPp: sleeve.gapPp,
+    status: sleeveStatus(sleeve.currentWeight, sleeve.targetWeight),
+    guardNote: sleeve.guardNote,
+    ...(baseWeight == null ? {} : { baseWeight }),
+  };
+}
+
+function combineGap(label: string, colorSleeve: Sleeve, parts: GapView[]): GapView {
+  const currentKrw = parts.reduce((sum, part) => sum + part.currentKrw, 0);
+  const currentWeight = parts.reduce((sum, part) => sum + part.currentWeight, 0);
+  const targetWeight = parts.reduce((sum, part) => sum + part.targetWeight, 0);
+  const targetKrw = parts.reduce((sum, part) => sum + part.targetKrw, 0);
+  const hasBase = parts.some((part) => part.baseWeight != null);
+  return {
+    id: label,
+    label,
+    colorSleeve,
+    currentKrw,
+    currentWeight,
+    targetWeight,
+    targetKrw,
+    gapPp: (currentWeight - targetWeight) * 100,
+    status: sleeveStatus(currentWeight, targetWeight),
+    guardNote: null,
+    ...(hasBase ? { baseWeight: parts.reduce((sum, part) => sum + (part.baseWeight ?? 0), 0) } : {}),
+  };
+}

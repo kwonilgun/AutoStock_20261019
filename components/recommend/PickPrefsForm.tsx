@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   PICK_AIMS,
   PICK_AIM_LABEL,
@@ -21,6 +21,7 @@ import {
   type PickMarket,
   type PickPrefs,
   type PickSector,
+  pickPrefsSummary,
 } from "@/lib/engine/pick-prefs";
 import { PICK_PLAN_WEEKS, type PickPlanWeeks } from "@/lib/engine/pick-schedule";
 import { savePickPrefs } from "@/lib/server/pick-prefs-actions";
@@ -29,11 +30,14 @@ export function PickPrefsForm({
   initial,
   planWeeks: initialPlanWeeks,
   intent,
+  folder = false,
   onSaved,
 }: {
   initial: PickPrefs | null;
   planWeeks: PickPlanWeeks;
   intent: "start" | "edit";
+  /** 설정 화면에서는 접힌 폴더로 둔다. 추천을 처음 고를 때는 펼친 카드다. */
+  folder?: boolean;
   onSaved?: (prefs: PickPrefs, planWeeks: PickPlanWeeks) => void;
 }) {
   const [instrument, setInstrument] = useState<PickInstrument | null>(initial?.instrument ?? null);
@@ -46,6 +50,12 @@ export function PickPrefsForm({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState(!folder);
+
+  useEffect(() => {
+    if (!folder) return;
+    if (window.location.hash === "#pick-prefs") setOpen(true);
+  }, [folder]);
 
   const singleBlocked = instrument === "stock";
   const stockBlocked = exclude.includes("single");
@@ -79,10 +89,14 @@ export function PickPrefsForm({
     onSaved?.(result.prefs, result.planWeeks);
   }
 
-  return (
-    <section id="pick-prefs" className="rounded-[22px] bg-white px-5 py-5">
-      <h2 className="text-[17px] font-bold text-[#191f28]">추천 기준</h2>
-      <p className="mt-2 text-[14px] leading-5 text-[#6b7684]">
+  const summary =
+    instrument && addTo && market && aim
+      ? `${pickPrefsSummary({ instrument, addTo, market, aim, exclude, sectors })} · ${planWeeks}주`
+      : "아직 고르지 않았습니다";
+
+  const fields = (
+    <>
+      <p className={`text-[14px] leading-5 text-[#6b7684] ${folder ? "" : "mt-2"}`}>
         {intent === "start"
           ? "종목을 고르기 전에 기준을 고릅니다. 한 번만 묻고, 설정에서 바꿀 수 있습니다. 우선은 이번 달 목표 비중을 기울이고, 나머지 기준은 종목만 고릅니다."
           : "우선은 홈의 이번 달 목표 비중과 괴리의 매수·매도 금액을 바꿉니다. 나머지 기준은 종목과 향후 계획에만 씁니다."}
@@ -161,7 +175,49 @@ export function PickPrefsForm({
         {pending ? "저장 중" : intent === "start" ? "이 기준으로 추천받기" : "저장"}
       </button>
       {message ? <p className={`mt-3 text-[13px] font-medium ${failed ? "text-[#f04452]" : "text-[#3182f6]"}`}>{message}</p> : null}
+    </>
+  );
+
+  if (!folder) {
+    return (
+      <section id="pick-prefs" className="rounded-[22px] bg-white px-5 py-5">
+        <h2 className="text-[17px] font-bold text-[#191f28]">추천 기준</h2>
+        {fields}
+      </section>
+    );
+  }
+
+  return (
+    <section id="pick-prefs" className="rounded-[22px] bg-white px-5">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-center gap-3 py-5 text-left"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-bold text-[#191f28]">추천 기준</span>
+          {open ? null : <span className="mt-1 block truncate text-[13px] font-medium text-[#8b95a1]">{summary}</span>}
+        </span>
+        <ChevronIcon open={open} />
+      </button>
+      {open ? <div className="pb-5">{fields}</div> : null}
     </section>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      className={`shrink-0 text-[#8b95a1] transition-transform ${open ? "rotate-180" : ""}`}
+    >
+      <path d="M6 9.5 12 15.5 18 9.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

@@ -13,9 +13,13 @@ export function parsePickEngine(value: string | null | undefined): PickEngine {
   return value === "spark" ? "spark" : "claude";
 }
 
-/** 추천 종목은 Claude로 받는다. */
-export function assignedPickEngine(_value?: string | null): PickEngine {
-  return "claude";
+/** 설정에 저장된 모델. spark면 Spark의 Qwen이고, 그 외에는 Claude다. */
+export function assignedPickEngine(value?: string | null): PickEngine {
+  return parsePickEngine(value);
+}
+
+export function modelEngineLabel(engine: PickEngine): string {
+  return engine === "spark" ? "Spark" : "Claude";
 }
 
 /** 화면에 보여줄 저장본. Claude 키가 없으면 Claude 배정이어도 Spark 저장본을 그대로 보여 준다. */

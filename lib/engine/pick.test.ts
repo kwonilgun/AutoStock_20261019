@@ -164,9 +164,9 @@ describe("추천 종목 응답", () => {
     expect(parseStoredPick("깨진 json")).toBeNull();
   });
 
-  it("추천 모델은 Claude다", () => {
+  it("추천 모델은 설정에 저장된 값을 따른다", () => {
     expect(assignedPickEngine("claude")).toBe("claude");
-    expect(assignedPickEngine("spark")).toBe("claude");
+    expect(assignedPickEngine("spark")).toBe("spark");
     expect(assignedPickEngine(undefined)).toBe("claude");
     expect(assignedPickEngine("openai")).toBe("claude");
   });

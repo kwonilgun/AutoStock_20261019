@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { investorStyleOf, type InvestorStyle } from "@/lib/engine/investor";
 import { pickPrefsFromRow, type PickPrefs } from "@/lib/engine/pick-prefs";
 import { pickPlanWeeksOf, type PickPlanWeeks } from "@/lib/engine/pick-schedule";
+import { parsePickEngine, type PickEngine } from "@/lib/pick-engine";
 import { loginAllowed } from "@/lib/server/approval";
 
 const COOKIE = "egg_session";
@@ -21,6 +22,8 @@ export type SessionUser = {
   pickEnabled: boolean;
   pickPrefs: PickPrefs | null;
   planWeeks: PickPlanWeeks;
+  pickEngine: PickEngine;
+  weightEngine: PickEngine;
 };
 
 function hashToken(token: string) {
@@ -98,5 +101,7 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
       sectors: session.user.pickSectors,
     }),
     planWeeks: pickPlanWeeksOf(session.user.pickPlanWeeks),
+    pickEngine: parsePickEngine(session.user.pickEngine),
+    weightEngine: parsePickEngine(session.user.weightEngine),
   };
 });

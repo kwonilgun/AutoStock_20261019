@@ -6,7 +6,7 @@ import { formatFedDate, formatFedTarget, formatFx } from "@/components/home/Mark
 import { SeoulClock } from "@/components/home/SeoulClock";
 import { WeightFolders } from "@/components/home/WeightFolders";
 import { ReportArchive } from "@/components/recommend/ReportArchive";
-import { gapViews } from "@/lib/engine/gap";
+import { gapBuckets } from "@/lib/engine/gap";
 import { alignCumulative, buildAssetSeries, heldPositions } from "@/lib/engine/history";
 import type { Sleeve, SleeveSnapshot } from "@/lib/engine/types";
 import { formatNumber } from "@/lib/format";
@@ -136,9 +136,9 @@ export default async function HomePage() {
 }
 
 function GapBrief({ sleeves, hasAssets }: { sleeves: SleeveSnapshot[]; hasAssets: boolean }) {
-  const items = gapViews(sleeves);
-  const over = items.filter((item) => item.status === "over").length;
-  const under = items.filter((item) => item.status === "under").length;
+  const buckets = gapBuckets(sleeves);
+  const over = buckets.filter((bucket) => bucket.summary.status === "over").length;
+  const under = buckets.filter((bucket) => bucket.summary.status === "under").length;
 
   return (
     <div className="mt-4 border-t border-[#f2f4f6] pt-4">
@@ -150,7 +150,7 @@ function GapBrief({ sleeves, hasAssets }: { sleeves: SleeveSnapshot[]; hasAssets
         </Link>
       </div>
       <p className="mt-1.5 text-[13px] leading-5 text-[#6b7684]">
-        지금 비중이 내 목표에서 벗어난 폭입니다. 목표보다 많으면 과다, 적으면 부족입니다.
+        주식, 채권, 자산, 현금으로 판단합니다. 묶음이 목표보다 많으면 과다, 적으면 부족입니다.
       </p>
       {hasAssets ? (
         <p className="mt-2 text-[15px] font-semibold tabular-nums">

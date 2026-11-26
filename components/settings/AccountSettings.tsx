@@ -1,18 +1,26 @@
 import Link from "next/link";
 import { PickPrefsForm } from "@/components/recommend/PickPrefsForm";
 import { DeleteAccountRow } from "@/components/settings/DeleteAccountForm";
+import { ModelEngineForm } from "@/components/settings/ModelEngineForm";
 import { PasswordSettingRow } from "@/components/settings/SettingsPasswordForm";
 import type { PickPrefs } from "@/lib/engine/pick-prefs";
 import type { PickPlanWeeks } from "@/lib/engine/pick-schedule";
+import type { PickEngine } from "@/lib/pick-engine";
 
 export function AccountSettings({
   email,
   prefs,
   planWeeks,
+  pickEngine,
+  weightEngine,
+  sparkModel,
 }: {
   email: string;
   prefs: PickPrefs | null | undefined;
   planWeeks: PickPlanWeeks;
+  pickEngine?: PickEngine;
+  weightEngine?: PickEngine;
+  sparkModel?: string | null;
 }) {
   return (
     <>
@@ -21,7 +29,11 @@ export function AccountSettings({
         <p className="mt-1 truncate text-[17px] font-bold text-[#191f28]">{email}</p>
       </section>
 
-      {prefs !== undefined ? <PickPrefsForm initial={prefs} planWeeks={planWeeks} intent="edit" /> : null}
+      {pickEngine && weightEngine ? (
+        <ModelEngineForm pickEngine={pickEngine} weightEngine={weightEngine} sparkModel={sparkModel ?? null} />
+      ) : null}
+
+      {prefs !== undefined ? <PickPrefsForm initial={prefs} planWeeks={planWeeks} intent="edit" folder /> : null}
 
       <section className="divide-y divide-[#f2f4f6] rounded-[22px] bg-white px-5 py-2">
         <Link href="/settings/manual" className="flex w-full items-center justify-between py-3 text-left">
