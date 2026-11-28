@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminNav } from "@/components/admin/AdminNav";
-import { signOut } from "@/lib/server/auth-actions";
+import { SignOutButton } from "@/components/layout/SignOutButton";
 import { getCurrentUser } from "@/lib/server/session";
 
 export async function requireAdminPage() {
@@ -31,11 +31,7 @@ export function AdminShell({ subtitle, children }: { subtitle: string; children:
             <Link href="/admin/password" className="rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold text-[#4e5968]">
               비밀번호
             </Link>
-            <form action={signOut}>
-              <button type="submit" className="rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold text-[#4e5968]">
-                로그아웃
-              </button>
-            </form>
+            <SignOutButton className="rounded-full bg-white px-3.5 py-2 text-[13px] font-semibold text-[#4e5968]" />
           </div>
         </div>
         <div className="mx-auto max-w-lg px-4 pb-3">

@@ -12,7 +12,7 @@ import type { RecommendAddSeed } from "@/lib/recommendations";
 import type { SecurityMatch } from "@/lib/quotes/parse";
 import { isPlainCashTicker } from "@/lib/quotes/symbol";
 import { PICK_DISABLED_MESSAGE } from "@/lib/pick-engine";
-import { deleteHolding, refreshQuotesAndFx, saveHolding, suggestSecurities } from "@/lib/server/actions";
+import { deleteHolding, saveHolding, suggestSecurities } from "@/lib/server/actions";
 import { BraveImport } from "@/components/portfolio/BraveImport";
 
 type Draft = {
@@ -869,8 +869,6 @@ export function HoldingDesk({
   const [message, setMessage] = useState<string | null>(null);
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
-  const [updatingQuotes, startQuoteUpdate] = useTransition();
-  const [quoteError, setQuoteError] = useState<string | null>(null);
   const addDialogRef = useRef<HTMLDialogElement>(null);
   const addNoticeRef = useRef<HTMLDialogElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -994,18 +992,6 @@ export function HoldingDesk({
       if (except?.id && holding.id === except.id) return false;
       if (!except?.id && except && normalizeTicker(holding.ticker) === normalizeTicker(except.ticker)) return false;
       return normalizeTicker(holding.ticker) === key;
-    });
-  }
-
-  function updateQuotes() {
-    setQuoteError(null);
-    startQuoteUpdate(async () => {
-      const result = await refreshQuotesAndFx();
-      if (!result.ok) {
-        setQuoteError(result.message);
-        return;
-      }
-      router.refresh();
     });
   }
 
@@ -1243,19 +1229,8 @@ export function HoldingDesk({
       <section className="rounded-[22px] bg-white px-5 py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="text-[17px] font-bold text-[#191f28]">보유 종목</h2>
-              <button
-                type="button"
-                onClick={updateQuotes}
-                disabled={updatingQuotes}
-                className="h-7 shrink-0 rounded-lg bg-[#f2f4f6] px-2.5 text-[12px] font-bold text-[#191f28] disabled:text-[#8b95a1]"
-              >
-                {updatingQuotes ? "업데이트 중" : "업데이트"}
-              </button>
-            </div>
+            <h2 className="text-[17px] font-bold text-[#191f28]">보유 종목</h2>
             {quoteFetched ? <p className="mt-0.5 text-[12px] leading-4 text-[#8b95a1]">시세 {quoteFetched}</p> : null}
-            {quoteError ? <p className="mt-1 text-[12px] leading-4 text-[#f04452]">{quoteError}</p> : null}
           </div>
           <div className="flex max-w-full flex-wrap items-center justify-end gap-1.5">
             <button

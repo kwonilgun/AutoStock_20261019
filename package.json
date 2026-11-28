@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
+    "gap-alert": "tsx scripts/gap-alert.ts",
     "db:push": "prisma db push",
     "postinstall": "prisma generate && node scripts/patch-next-request-log.js"
   },
@@ -26,6 +27,7 @@
     "prisma": "^6.16.2",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
+    "tsx": "^4.20.6",
     "vitest": "^3.2.4"
   }
 }

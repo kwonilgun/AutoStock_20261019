@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PasswordForm } from "@/components/admin/PasswordForm";
-import { signOut } from "@/lib/server/auth-actions";
+import { SignOutButton } from "@/components/layout/SignOutButton";
 import { getCurrentUser } from "@/lib/server/session";
 
 export default async function AdminPasswordPage() {
@@ -27,11 +27,7 @@ export default async function AdminPasswordPage() {
             관리자 화면으로
           </Link>
         )}
-        <form action={signOut}>
-          <button type="submit" className="underline">
-            로그아웃
-          </button>
-        </form>
+        <SignOutButton className="underline" />
       </div>
     </main>
   );

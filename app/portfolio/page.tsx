@@ -1,6 +1,8 @@
 import { ViewFrame } from "@/components/frame/ViewFrame";
 import { AssetSummary } from "@/components/portfolio/AssetSummary";
 import { HoldingDesk } from "@/components/portfolio/HoldingDesk";
+import { TossHoldings } from "@/components/portfolio/TossHoldings";
+import { loadTossHoldings } from "@/lib/server/toss";
 import { SLEEVE_LABEL } from "@/lib/engine/config";
 import { SLEEVES, type Sleeve } from "@/lib/engine/types";
 import { portfolioHoldingGain } from "@/lib/engine/value";
@@ -110,6 +112,7 @@ export default async function PortfolioPage({
   searchParams: Promise<{ ticker?: string | string[]; sleeve?: string | string[]; currency?: string | string[] }>;
 }) {
   const seed = parseRecommendAddSeed(await searchParams);
+  const tossHoldings = loadTossHoldings();
   return (
     <ViewFrame refreshMarks>
       {(view) => {
@@ -159,6 +162,8 @@ export default async function PortfolioPage({
                 </div>
               )}
             </section>
+
+            <TossHoldings fx={view.portfolio.usdKrw} holdings={tossHoldings} />
 
             <HoldingDesk
               holdings={view.holdings.filter((holding) => holding.quantity > 0)}

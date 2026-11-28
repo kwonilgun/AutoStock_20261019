@@ -1,5 +1,10 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { SeoulClock } from "@/components/home/SeoulClock";
 import { formatNumber } from "@/lib/format";
+import { refreshQuotesAndFx } from "@/lib/server/actions";
 
 function won(value: number): string {
   const rounded = Math.round(value);
@@ -34,14 +39,40 @@ export function AssetSummary({
   blockedReason: string | null;
   fx: number;
 }) {
+  const router = useRouter();
+  const [updating, startUpdate] = useTransition();
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const fxLabel = formatNumber(Math.round(fx * 100) / 100);
+
+  function updateQuotes() {
+    setUpdateError(null);
+    startUpdate(async () => {
+      const result = await refreshQuotesAndFx();
+      if (!result.ok) {
+        setUpdateError(result.message);
+        return;
+      }
+      router.refresh();
+    });
+  }
 
   return (
     <section className="rounded-[22px] bg-white px-5 pt-6 pb-5">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[15px] font-medium text-[#4e5968]">총 자산</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="text-[15px] font-medium text-[#4e5968]">총 자산</p>
+          <button
+            type="button"
+            onClick={updateQuotes}
+            disabled={updating}
+            className="h-7 shrink-0 rounded-lg bg-[#f2f4f6] px-2.5 text-[12px] font-bold text-[#191f28] disabled:text-[#8b95a1]"
+          >
+            {updating ? "업데이트 중" : "업데이트"}
+          </button>
+        </div>
         <SeoulClock />
       </div>
+      {updateError ? <p className="mt-1 text-[12px] leading-4 text-[#f04452]">{updateError}</p> : null}
       <p className="mt-1 text-[32px] leading-tight font-bold tracking-tight text-[#191f28] tabular-nums">{won(totalKrw)}</p>
       <p className="mt-2 flex flex-wrap items-baseline gap-x-2 text-[14px] text-[#8b95a1]">
         <span>

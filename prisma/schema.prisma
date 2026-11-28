@@ -49,9 +49,20 @@ model User {
   pickSectors  String      @default("")
   /// 향후 추진 계획 기간. 1주, 2주, 4주. 종목 추천은 바꾸지 않는다.
   pickPlanWeeks Int        @default(1)
+  /// 텔레그램 괴리 알림을 받을 채팅. 비어 있으면 그 회원에게는 보내지 않는다.
+  telegramChatId String?
+  /// 연결 버튼이 만든 일회용 코드. 텔레그램 /start 값과 맞으면 채팅을 저장한다.
+  telegramLinkCode String? @unique
+  telegramLinkExpires DateTime?
+  /// 괴리가 이 값(%p) 이상이면 과다로 알린다.
+  telegramGapOver  Float @default(5)
+  /// 괴리가 이 값(%p) 이하로 내려가면 부족으로 알린다. 양수로 저장한다.
+  telegramGapUnder Float @default(5)
   portfolios   Portfolio[]
+  gapAlerts    GapAlertLog[]
   sessions     Session[]
   llmKeys      UserLlmKey[]
+  tossCredential UserTossCredential?
   adviceCaches AdviceCache[]
   pickCache    PickCache?
   createdAt    DateTime    @default(now())
@@ -95,6 +106,17 @@ model PickClaudeSetting {
   workspaceId String   @default("")
   updatedBy   String?
   updatedAt   DateTime @updatedAt
+}
+
+/// 회원이 설정에 넣은 토스증권 Open API 키. 평문은 저장하지 않는다.
+model UserTossCredential {
+  userId               String   @id
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientIdCipher       String
+  clientSecretCipher   String
+  clientIdLast4        String
+  clientSecretLast4    String
+  updatedAt            DateTime @updatedAt
 }
 
 /// 회원이 직접 넣은 상용 모델 키. 평문은 저장하지 않는다.
@@ -313,4 +335,24 @@ model PhaseDiagnosis {
   ruleId     Int?
   inputsJson String
   summary    String
+}
+
+/// 같은 날 같은 시각에 괴리 알림을 두 번 보내지 않기 위한 기록. 보낸 뒤에만 남긴다.
+model GapAlertLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 서울 기준 YYYY-MM-DD
+  day       String
+  /// 08 또는 14
+  slot      String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, day, slot])
+}
+
+/// 텔레그램 getUpdates 커서. 행은 id "global" 하나뿐이다.
+model TelegramCursor {
+  id       String @id @default("global")
+  updateId Int    @default(0)
 }

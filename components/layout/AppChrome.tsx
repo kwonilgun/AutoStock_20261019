@@ -5,7 +5,7 @@ import { AdviceBackButton, PickButton } from "@/components/layout/AdviceButton";
 import { LiveMarksTicker } from "@/components/layout/LiveMarksTicker";
 import { Nav } from "@/components/layout/Nav";
 import { SettingsButton } from "@/components/layout/SettingsButton";
-import { signOut } from "@/lib/server/auth-actions";
+import { SignOutButton } from "@/components/layout/SignOutButton";
 
 function isBare(pathname: string) {
   return pathname === "/login" || pathname === "/signup" || pathname.startsWith("/admin");
@@ -29,14 +29,7 @@ export function AppChrome({ pickEnabled, children }: { pickEnabled: boolean; chi
               <AdviceBackButton />
             ) : (
               <>
-                <form action={signOut}>
-                  <button
-                    type="submit"
-                    className="flex h-10 items-center justify-center rounded-full bg-white px-3.5 text-[13px] font-semibold text-[#4e5968]"
-                  >
-                    로그아웃
-                  </button>
-                </form>
+                <SignOutButton className="flex h-10 items-center justify-center rounded-full bg-white px-3.5 text-[13px] font-semibold text-[#4e5968]" />
                 <SettingsButton />
               </>
             )}

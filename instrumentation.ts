@@ -7,4 +7,6 @@ export async function register() {
     const message = error instanceof Error ? error.message : "unknown";
     console.error(`[pick] claude setting load failed ${message}`);
   }
+  const { ensureTelegramPoller } = await import("@/lib/server/telegram");
+  ensureTelegramPoller();
 }

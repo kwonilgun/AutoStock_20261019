@@ -3,11 +3,16 @@ import { PickPrefsForm } from "@/components/recommend/PickPrefsForm";
 import { DeleteAccountRow } from "@/components/settings/DeleteAccountForm";
 import { ModelEngineForm } from "@/components/settings/ModelEngineForm";
 import { PasswordSettingRow } from "@/components/settings/SettingsPasswordForm";
+import { TelegramAlert } from "@/components/settings/TelegramAlert";
+import { TossKeyForm } from "@/components/settings/TossKeyForm";
 import type { PickPrefs } from "@/lib/engine/pick-prefs";
 import type { PickPlanWeeks } from "@/lib/engine/pick-schedule";
 import type { PickEngine } from "@/lib/pick-engine";
+import { getCurrentUser } from "@/lib/server/session";
+import { readTelegramLink } from "@/lib/server/telegram-actions";
+import { readTossKeyMask } from "@/lib/server/toss-keys";
 
-export function AccountSettings({
+export async function AccountSettings({
   email,
   prefs,
   planWeeks,
@@ -22,12 +27,22 @@ export function AccountSettings({
   weightEngine?: PickEngine;
   sparkModel?: string | null;
 }) {
+  const user = await getCurrentUser();
+  const telegram = user?.role === "user" ? await readTelegramLink(user.id) : null;
+  const toss = user?.role === "user" ? await readTossKeyMask(user.id) : null;
+
   return (
     <>
       <section className="rounded-[22px] bg-white px-5 py-5">
         <p className="text-[13px] font-medium text-[#8b95a1]">로그인 계정</p>
         <p className="mt-1 truncate text-[17px] font-bold text-[#191f28]">{email}</p>
       </section>
+
+      {telegram ? (
+        <TelegramAlert linked={telegram.linked} botReady={telegram.botReady} over={telegram.over} under={telegram.under} />
+      ) : null}
+
+      {user?.role === "user" ? <TossKeyForm saved={toss} /> : null}
 
       {pickEngine && weightEngine ? (
         <ModelEngineForm pickEngine={pickEngine} weightEngine={weightEngine} sparkModel={sparkModel ?? null} />
